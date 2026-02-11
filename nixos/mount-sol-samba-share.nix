@@ -8,7 +8,7 @@
   # Create the activation script for smbpasswd
   system.activationScripts.smbpasswd = lib.stringAfter [ "users" "groups" ] ''
     SMB_PASSWORD=$(cat ${config.age.secrets.sol-smbpasswd.path})
-    echo "username=ari" > /etc/smb-creds
+    echo "username=ethie" > /etc/smb-creds
     echo "password=$SMB_PASSWORD" >> /etc/smb-creds
   '';
 

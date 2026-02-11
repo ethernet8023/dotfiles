@@ -7,7 +7,7 @@ in
     keys.sol
     keys.hermes
   ];
-  "ari-passwd.age".publicKeys = [
+  "ethie-passwd.age".publicKeys = [
     keys.luna
     keys.sol
     keys.hermes

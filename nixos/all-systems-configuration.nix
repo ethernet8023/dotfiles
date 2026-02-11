@@ -71,7 +71,7 @@
   age = {
     identityPaths = [ "/home/ari/.ssh/id_ed25519" ];
     secrets = {
-      ari-passwd.file = ../secrets/ari-passwd.age;
+      ethie-passwd.file = ../secrets/ethie-passwd.age;
       sol-smbpasswd.file = ../secrets/sol-smbpasswd.age;
       netrc.file = ../secrets/netrc.age;
     };
@@ -135,7 +135,7 @@
     users.ari = {
       isNormalUser = true;
       home = "/home/ari";
-      description = "Ari Lotter";
+      description = "ethernet";
       uid = 1000;
       extraGroups = [
         "wheel"
@@ -151,7 +151,7 @@
         "vboxusers"
       ];
       shell = pkgs.fish;
-      hashedPasswordFile = config.age.secrets.ari-passwd.path;
+      hashedPasswordFile = config.age.secrets.ethie-passwd.path;
       openssh.authorizedKeys.keys =
         let
           keys = (import ../ssh-pubkeys.nix);

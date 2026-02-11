@@ -1,5 +1,5 @@
 {
-  description = "ari's nice lil nix config :3";
+  description = "ethie's nice lil nix config :3";
 
   nixConfig = {
     extra-substituters = [
@@ -73,14 +73,14 @@
       ];
       tty-modules = base-modules ++ [
         {
-          home-manager.users.ari = import ./home-manager/home.nix;
+          home-manager.users.ethie = import ./home-manager/home.nix;
         }
       ];
       graphical-modules = base-modules ++ [
         catppuccin.nixosModules.catppuccin
         ./nixos/graphical-configuration.nix
         {
-          home-manager.users.ari = import ./home-manager/home-graphical.nix;
+          home-manager.users.ethie = import ./home-manager/home-graphical.nix;
         }
       ];
     in
@@ -114,7 +114,7 @@
 
         # kronos = saturn = cuz it rings ;)
         # sd image: `nix build '.#kronos-sd'`
-        # from another pc: `NIX_SSHOPTS="-t" nixos-rebuild boot --flake .#kronos -L --target-host ari@kronos.local --use-remote-sudo`
+        # from another pc: `NIX_SSHOPTS="-t" nixos-rebuild boot --flake .#kronos -L --target-host ethie@kronos.local --use-remote-sudo`
         "kronos" = nixpkgs.lib.nixosSystem (
           sys
           // {
@@ -129,7 +129,7 @@
 
         # server = sol
         # locally: `sudo nixos-rebuild switch --flake .`
-        # from `another pc: `NIX_SSHOPTS="-t" nixos-rebuild switch --flake .#sol -L --target-host ari@sol.local --use-remote-sudo`
+        # from `another pc: `NIX_SSHOPTS="-t" nixos-rebuild switch --flake .#sol -L --target-host ethie@sol.local --use-remote-sudo`
         "sol" = nixpkgs.lib.nixosSystem (
           sys
           // {
