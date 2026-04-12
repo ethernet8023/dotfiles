@@ -8,7 +8,7 @@
     VISUAL = "code";
   };
 
-  programs.git.extraConfig.core.editor = "code --wait";
+  programs.git.settings.core.editor = "code --wait";
 
   programs.vscode = {
     enable = true;
@@ -44,6 +44,8 @@
         ms-vscode-remote.remote-ssh
         charliermarsh.ruff
         mkhl.direnv
+        ms-vsliveshare.vsliveshare
+        github.vscode-pull-request-github
       ];
 
       userSettings = {

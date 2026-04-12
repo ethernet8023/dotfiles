@@ -18,12 +18,6 @@
     enable32Bit = true;
   };
 
-  programs.hyprland.enable = true;
-  xdg.portal = {
-    enable = true;
-    extraPortals = [ pkgs.xdg-desktop-portal-gtk ];
-  };
-
   virtualisation = {
     docker.enable = true;
     # virtualbox.host = {
@@ -31,6 +25,14 @@
     #   enableKvm = true;
     #   addNetworkInterface = false;
     # };
+  };
+
+  programs.uwsm = {
+    enable = true;
+  };
+  programs.hyprland = {
+    enable = true;
+    withUWSM = true;
   };
 
   environment.variables = {

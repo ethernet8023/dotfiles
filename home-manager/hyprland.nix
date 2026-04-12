@@ -62,6 +62,8 @@
 
   wayland.windowManager.hyprland = {
     enable = true;
+    package = null;
+    portalPackage = null;
     xwayland.enable = true;
     systemd.enable = true;
     settings = {
@@ -70,7 +72,6 @@
 
       exec-once = [
         "hyprpaper"
-        "systemctl --user enable xdg-desktop-portal-hyprland"
         "gnome-keyring-daemon --start --components=secrets"
       ];
 
@@ -104,13 +105,9 @@
 
       master.smart_resizing = true;
 
-      gestures = {
-        workspace_swipe = true;
-        workspace_swipe_distance = 600;
-        workspace_swipe_cancel_ratio = 0.5;
-        workspace_swipe_min_speed_to_force = 7;
-      };
-
+      gesture = [
+        "3, horizontal, workspace"
+      ];
       input = {
         kb_layout = "us";
         repeat_delay = 300;
@@ -122,8 +119,6 @@
           disable_while_typing = false;
         };
       };
-
-      layerrule = [ "blur,waybar" ];
 
       bindm = [
         # Move/resize windows with mod + LMB/RMB and dragging
@@ -147,8 +142,8 @@
 
       bind = [
         "$mod, Return, exec, $terminal"
-        "$mod, R, togglesplit"
-        "$mod, F, fullscreen"
+        "$mod, R, layoutmsg, togglesplit"
+        "$mod, F, fullscreen, toggle"
         ''$mod, D, exec, rofi -show drun -display-drun " " -show-icons''
         "$mod Shift, Q, killactive"
 
@@ -162,6 +157,7 @@
         ", Print, exec, grimblast copysave output # screenshot"
         ", XF86AudioMute, exec, ${pkgs.pulseaudio}/bin/pactl set-sink-mute @DEFAULT_SINK@ toggle"
 
+        "SUPER,S, exec, grimblast copysave active"
         # screenshot area
         "SUPER_SHIFT,S, exec, grimblast copysave area"
 
@@ -194,7 +190,7 @@
                 let
                   c = (x + 1) / 10;
                 in
-                builtins.toString (x + 1 - (c * 10));
+                toString (x + 1 - (c * 10));
             in
             [
               "$mod, ${ws}, workspace, ${toString (x + 1)}"
@@ -204,10 +200,10 @@
         )
       );
 
-      windowrulev2 = [
-        "float,class:^(pavucontrol)$"
-        "float,title:(Open Files)$"
-        "float,title:(Save File)$"
+      windowrule = [
+        "match:class ^(pavucontrol)$, float on"
+        "match:title ^(Open Files)$, float on"
+        "match:title ^(Save File)$, float on"
       ];
 
       opengl = {

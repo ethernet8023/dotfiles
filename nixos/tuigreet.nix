@@ -4,7 +4,7 @@
     enable = true;
     settings = {
       default_session = {
-        command = "${pkgs.tuigreet}/bin/tuigreet --cmd Hyprland -g 'access is restricted to authorized personnel only.'";
+        command = "${pkgs.lib.getExe pkgs.tuigreet} -g 'access is restricted to authorized personnel only.' exec uwsm start hyprland.desktop";
         user = "greeter";
       };
     };

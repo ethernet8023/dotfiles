@@ -8,6 +8,7 @@
     extra-trusted-public-keys = [
       "cache.garnix.io:CTFPyKSLcx5RMJKfLo5EEPUObbA78b0YQ2DTCJXqr9g="
     ];
+    extra-deprecated-features = [ "broken-string-escape" ];
   };
 
   inputs =
@@ -27,7 +28,7 @@
       hypr-contrib = followsNixpkgs "github:hyprwm/contrib";
       vscode-ext = followsNixpkgs "github:nix-community/nix-vscode-extensions";
       beepy = followsNixpkgs "github:arilotter/nixos-beepy";
-      fido2-hid-bridge = followsNixpkgs "github:arilotter/fido2-hid-bridge";
+      fido2-hid-bridge = followsNixpkgs "github:arilotter/fido2-hid-bridge-flake";
       fw-inputmodule = followsNixpkgs "github:caffineehacker/nix?dir=flakes/inputmodule-rs";
       nixvim = followsNixpkgs "github:nix-community/nixvim";
       lix = {
@@ -85,7 +86,7 @@
       ];
     in
     rec {
-      formatter.x86_64-linux = nixpkgs.legacyPackages.x86_64-linux.nixfmt-rfc-style;
+      formatter.x86_64-linux = nixpkgs.legacyPackages.x86_64-linux.nixfmt;
       nixosConfigurations = {
         # desktop ~
         "luna" = nixpkgs.lib.nixosSystem (

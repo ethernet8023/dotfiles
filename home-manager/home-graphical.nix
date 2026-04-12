@@ -42,7 +42,6 @@
     clang-tools
 
     # wine
-    wineWowPackages.waylandFull
 
     ledger-live-desktop
   ];

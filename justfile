@@ -11,6 +11,9 @@ build *args: genflake
 switch *args: genflake
   nh os switch . {{args}}
 
+boot *args: genflake
+  nh os boot . {{args}}
+
 update:
   nix flake update
 

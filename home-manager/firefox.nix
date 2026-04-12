@@ -1,4 +1,4 @@
-{ pkgs, config, ... }:
+{ pkgs, ... }:
 {
   programs.firefox = {
     enable = true;
@@ -44,6 +44,15 @@
           "extensions.autoDisableScopes" = 0;
           "browser.tabs.animate" = false;
           "browser.ml.linkPreview.enabled" = false;
+          "screenshots.browser.component.enabled" = false;
+          "dom.text_fragments.enabled" = false; # "copy link to highlight"
+          "devtools.accessibility.enabled" = false; # annoying in normal use
+          "browser.search.visualSearch.featureGate" = false;
+          "browser.translations.select.enable" = false;
+          "browser.ml.chat.menu" = false;
+          "extensions.formautofill.addresses.enabled" = false;
+          "extensions.formautofill.creditCards.enabled" = false;
+          "print.enabled" = false;
         };
       };
     };

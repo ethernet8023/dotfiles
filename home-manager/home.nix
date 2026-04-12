@@ -19,14 +19,12 @@
     (pkgs.callPackage ./runpod { })
     (pkgs.callPackage ./signal-desktop { })
     telegram-desktop
-    stremio
     # shell config
-    starship # prompt
     eza # ls replacement
 
     # "desktop" env
     upower # battery
-    neofetch # i mean, c'mon :)
+    fastfetch # i mean, c'mon :)
 
     # TUI tools
     bottom # system manager, like htop
@@ -58,7 +56,7 @@
     nixd
 
     # programming languages
-    python3Full
+    python3
 
     # debuggers
     lldb
@@ -117,7 +115,7 @@
     };
 
     shellInit = ''
-      starship init fish | source
+      ${pkgs.lib.getExe pkgs.starship} init fish | source
 
       set -gx ANDROID_HOME $HOME/Android/Sdk
       set -gx PATH $PATH ~/.yarn/bin ~/.npm/bin ~/bin ~/go/bin ~/.cargo/bin $ANDROID_HOME/emulator $ANDROID_HOME/tools $ANDROID_HOME/tools/bin $ANDROID_HOME/platform-tools
@@ -137,7 +135,7 @@
     enable = true;
     userEmail = "arilotter@gmail.com";
     userName = "Ari Lotter";
-    extraConfig = {
+    settings = {
       pull.rebase = true;
       rebase.autoStash = true;
       diff.tool = "default-difftool";
@@ -147,7 +145,10 @@
       alias.ci = "!git commit -m 'ci: empty commit' --allow-empty && git push && git reset --soft HEAD~ && git push -f";
     };
     lfs.enable = true;
-    delta.enable = true;
+  };
+  programs.delta = {
+    enable = true;
+    enableGitIntegration = true;
   };
 
   services.vscode-server.enable = true;
