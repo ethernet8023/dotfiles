@@ -130,11 +130,14 @@
     '';
   };
 
-  programs.mergiraf.enable = true;
+  programs.mergiraf = {
+    enable = true;
+    enableGitIntegration = true;
+  };
   programs.git = {
     enable = true;
     userEmail = "arilotter@gmail.com";
-    userName = "Ari Lotter";
+    userName = "ethernet";
     settings = {
       pull.rebase = true;
       rebase.autoStash = true;
@@ -145,6 +148,10 @@
       alias.ci = "!git commit -m 'ci: empty commit' --allow-empty && git push && git reset --soft HEAD~ && git push -f";
     };
     lfs.enable = true;
+  };
+  programs.difftastic = {
+    enable = true;
+    options.git = true;
   };
   programs.delta = {
     enable = true;
