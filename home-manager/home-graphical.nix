@@ -44,6 +44,7 @@
     # wine
 
     ledger-live-desktop
+    beeper
   ];
 
   programs.vesktop.enable = true;
