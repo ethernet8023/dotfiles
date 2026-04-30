@@ -6,7 +6,7 @@
 {
   programs.rofi = {
     enable = true;
-    terminal = "${pkgs.ghostty}/bin/ghostty";
+    terminal = pkgs.lib.getExe pkgs.ghostty;
 
     theme =
       let
