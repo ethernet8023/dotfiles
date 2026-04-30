@@ -1,7 +1,9 @@
 # Do not modify! This file is generated.
+# One exception: If you use a different template than "flake.in.nix" set
+#                its relative path through the first argument to inputs.flakegen.
 
 {
-  description = "ari's nice lil nix config :3";
+  description = "ethie's nice lil nix config :3";
   inputs = {
     agenix = {
       inputs.nixpkgs.follows = "nixpkgs";
@@ -17,7 +19,7 @@
     };
     fido2-hid-bridge = {
       inputs.nixpkgs.follows = "nixpkgs";
-      url = "github:arilotter/fido2-hid-bridge";
+      url = "github:arilotter/fido2-hid-bridge-flake";
     };
     flakegen.url = "github:jorsn/flakegen";
     fw-inputmodule = {
@@ -63,6 +65,7 @@
     };
   };
   nixConfig = {
+    extra-deprecated-features = [ "broken-string-escape" ];
     extra-substituters = [ "https://cache.garnix.io" ];
     extra-trusted-public-keys = [ "cache.garnix.io:CTFPyKSLcx5RMJKfLo5EEPUObbA78b0YQ2DTCJXqr9g=" ];
   };
