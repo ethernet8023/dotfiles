@@ -194,6 +194,7 @@
       # All done
       LABEL="pcscd_acsccid_rules_end"
     '';
+    flatpak.enable = true;
   };
 
   security.wrappers."mount.cifs" = {
