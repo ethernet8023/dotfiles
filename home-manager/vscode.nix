@@ -23,7 +23,7 @@
         ms-vscode-remote.remote-containers
         semanticdiff.semanticdiff
         ms-python.python
-        ms-python.vscode-pylance
+        astral-sh.ty
         ms-python.black-formatter
         golang.go
         rust-lang.rust-analyzer
