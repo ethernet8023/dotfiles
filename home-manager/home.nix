@@ -136,27 +136,31 @@
   };
   programs.git = {
     enable = true;
-    userEmail = "arilotter@gmail.com";
-    userName = "ethernet";
     settings = {
+      user.email = "arilotter@gmail.com";
+      user.name = "ethernet";
       pull.rebase = true;
       rebase.autoStash = true;
-      diff.tool = "default-difftool";
       push.default = "simple";
       push.autoSetupRemote = true;
       url."git@github.com:".insteadOf = "https://github.com/";
       alias.ci = "!git commit -m 'ci: empty commit' --allow-empty && git push && git reset --soft HEAD~ && git push -f";
     };
+    signing.format = null;
     lfs.enable = true;
   };
   programs.difftastic = {
     enable = true;
-    options.git = true;
+    git = {
+      enable = true;
+      diffToolMode = true;
+    };
   };
-  programs.delta = {
-    enable = true;
-    enableGitIntegration = true;
-  };
+
+  # programs.delta = {
+  #   enable = true;
+  #   enableGitIntegration = true;
+  # };
 
   services.vscode-server.enable = true;
 }
