@@ -98,7 +98,6 @@
       animations.enabled = false;
 
       dwindle = {
-        pseudotile = true;
         preserve_split = true;
         force_split = 2;
       };
@@ -222,7 +221,6 @@
         disable_autoreload = false;
         allow_session_lock_restore = true;
         vrr = 2;
-        vfr = 0;
       };
     };
   };
