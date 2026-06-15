@@ -15,7 +15,7 @@
     ./waybar.nix
     ./supersonic.nix
     ./vscode.nix
-    ./neovim.nix
+    # ./neovim.nix
     ../nixos/catppuccin.nix
   ];
 
@@ -27,7 +27,7 @@
     pavucontrol # audio control
     blueman # bluetooth manager
     wl-clipboard # copy/paste cli
-    monado # xr? :D
+    # monado # xr? :D
 
     # 3d pwint
     prusa-slicer

@@ -27,10 +27,10 @@
       home-manager = followsNixpkgs "github:nix-community/home-manager";
       hypr-contrib = followsNixpkgs "github:hyprwm/contrib";
       vscode-ext = followsNixpkgs "github:nix-community/nix-vscode-extensions";
-      beepy = followsNixpkgs "github:arilotter/nixos-beepy";
+      # beepy = followsNixpkgs "github:arilotter/nixos-beepy";
       fido2-hid-bridge = followsNixpkgs "github:arilotter/fido2-hid-bridge-flake";
       fw-inputmodule = followsNixpkgs "github:caffineehacker/nix?dir=flakes/inputmodule-rs";
-      nixvim = followsNixpkgs "github:nix-community/nixvim";
+      # nixvim = followsNixpkgs "github:nix-community/nixvim";
       lix = {
         url = "https://git.lix.systems/lix-project/lix/archive/main.tar.gz";
         flake = false;
@@ -116,17 +116,17 @@
         # kronos = saturn = cuz it rings ;)
         # sd image: `nix build '.#kronos-sd'`
         # from another pc: `NIX_SSHOPTS="-t" nixos-rebuild boot --flake .#kronos -L --target-host ethie@kronos.local --use-remote-sudo`
-        "kronos" = nixpkgs.lib.nixosSystem (
-          sys
-          // {
-            modules = tty-modules ++ [
-              inputs.beepy.nixosModule
-              ./nixos/kronos/hardware-configuration.nix
-              ./nixos/kronos/configuration.nix
-              ./nixos/mount-sol-samba-share.nix
-            ];
-          }
-        );
+        # "kronos" = nixpkgs.lib.nixosSystem (
+        #   sys
+        #   // {
+        #     modules = tty-modules ++ [
+        #       inputs.beepy.nixosModule
+        #       ./nixos/kronos/hardware-configuration.nix
+        #       ./nixos/kronos/configuration.nix
+        #       ./nixos/mount-sol-samba-share.nix
+        #     ];
+        #   }
+        # );
 
         # server = sol
         # locally: `sudo nixos-rebuild switch --flake .`

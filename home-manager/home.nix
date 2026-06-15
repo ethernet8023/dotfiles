@@ -5,7 +5,7 @@
 }:
 {
   imports = [
-    inputs.nixvim.homeModules.default
+    # inputs.nixvim.homeModules.default
     inputs.vscode-server.homeModules.default
   ];
 

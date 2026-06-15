@@ -9,10 +9,6 @@
       inputs.nixpkgs.follows = "nixpkgs";
       url = "github:ryantm/agenix";
     };
-    beepy = {
-      inputs.nixpkgs.follows = "nixpkgs";
-      url = "github:arilotter/nixos-beepy";
-    };
     catppuccin = {
       inputs.nixpkgs.follows = "nixpkgs";
       url = "github:catppuccin/nix";
@@ -47,10 +43,6 @@
     };
     nixos-hardware.url = "github:NixOS/nixos-hardware";
     nixpkgs.url = "github:nixos/nixpkgs/master";
-    nixvim = {
-      inputs.nixpkgs.follows = "nixpkgs";
-      url = "github:nix-community/nixvim";
-    };
     nur = {
       inputs.nixpkgs.follows = "nixpkgs";
       url = "github:nix-community/NUR";
