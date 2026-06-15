@@ -45,4 +45,8 @@
   };
 
   services.openssh.enable = true;
+
+  # windows dualboto
+  time.hardwareClockInLocalTime = true;
+
 }
