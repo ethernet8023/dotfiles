@@ -1,0 +1,180 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# gh-watch-branch — live stream the latest GitHub Actions run on a branch.
+#
+# Usage:
+#   gh-watch-branch            # current git branch
+#   gh-watch-branch my-branch  # specific branch
+#   gh-watch-branch --all-logs # show all logs, not just failed, for completed runs
+#
+# Streams live logs for in-progress runs and only re-prints for completed runs
+# when the log actually changes.  No pager, ANSI preserved.
+
+PAGER=cat
+GH_PAGER=cat
+export PAGER GH_PAGER
+
+# We intentionally do NOT set FORCE_COLOR/CLICOLOR_FORCE globally.  `gh run
+# list --json` can incorrectly be colorized in a non-TTY when those are set,
+# which breaks `jq`.  The ANSI codes inside actual workflow logs survive
+# without these variables because they are part of the downloaded log bytes.
+
+BRANCH=""
+ALL_LOGS=false
+
+for arg in "$@"; do
+  case "$arg" in
+    --all-logs|-a)
+      ALL_LOGS=true
+      ;;
+    -*)
+      echo "Unknown option: $arg" >&2
+      exit 1
+      ;;
+    *)
+      BRANCH="$arg"
+      ;;
+  esac
+done
+
+if [ -z "$BRANCH" ]; then
+  if ! BRANCH="$(git branch --show-current 2>/dev/null)"; then
+    echo "error: not inside a git repository and no branch supplied" >&2
+    exit 1
+  fi
+fi
+
+REPO_INFO="$(NO_COLOR=true gh repo view --json owner,name --jq '.owner.login + "/" + .name' 2>/dev/null || true)"
+if [ -z "$REPO_INFO" ]; then
+  REPO_INFO="$(git remote get-url origin 2>/dev/null | sed -E 's#^(https://github\.com/|git@github\.com:)##' | sed -E 's#\.git$##')"
+fi
+
+TMPDIR="$(mktemp -d -t gh-watch-branch.XXXXXX)"
+trap 'rm -rf "$TMPDIR"' EXIT
+
+METADATA_FILE="$TMPDIR/latest.json"
+LOG_FILE="$TMPDIR/log.txt"
+PREV_LOG_FILE="$TMPDIR/prev-log.txt"
+
+FIRST_RUN=true
+
+print_header() {
+  local workflow title status conclusion run_id
+  workflow="$(printf '%s' "$1" | jq -r '.workflowName')"
+  title="$(printf '%s' "$1" | jq -r '.displayTitle')"
+  status="$(printf '%s' "$1" | jq -r '.status')"
+  conclusion="$(printf '%s' "$1" | jq -r '.conclusion')"
+  run_id="$(printf '%s' "$1" | jq -r '.databaseId')"
+
+  echo "→ $workflow: $title"
+  echo "  branch: $BRANCH  run-id: $run_id  status: ${status}${conclusion:+ ($conclusion)}"
+  [ -n "$REPO_INFO" ] && echo "  repo:   $REPO_INFO"
+  echo
+}
+
+poll_metadata() {
+  NO_COLOR=true gh run list \
+    --branch "$BRANCH" \
+    --limit 1 \
+    --json databaseId,status,conclusion,headBranch,displayTitle,workflowName \
+    --jq '.[0]'
+}
+
+# Validate raw gh output before jq sees it; otherwise opaque "parse error"
+# messages are impossible to debug.
+read_metadata() {
+  local raw
+  raw="$(poll_metadata 2>&1)" || true
+  if ! printf '%s' "$raw" | jq -e . >/dev/null 2>&1; then
+    echo "gh-watch-branch: gh did not return valid JSON for run list" >&2
+    echo "raw output was:" >&2
+    echo "$raw" >&2
+    return 1
+  fi
+  printf '%s' "$raw"
+}
+
+refresh_log() {
+  local run_id="$1" mode="$2"
+  if [ "$mode" = "failed" ]; then
+    gh run view "$run_id" --log-failed > "$LOG_FILE" 2>/dev/null || true
+  else
+    gh run view "$run_id" --log > "$LOG_FILE" 2>/dev/null || true
+  fi
+}
+
+# Print only the lines in $LOG_FILE that weren't in $PREV_LOG_FILE, then update
+# the previous file to match.
+emit_delta() {
+  if [ ! -f "$PREV_LOG_FILE" ]; then
+    cat "$LOG_FILE"
+    cp "$LOG_FILE" "$PREV_LOG_FILE"
+    return
+  fi
+
+  local prev_len log_len new_lines
+  prev_len="$(wc -l < "$PREV_LOG_FILE" | awk '{print $1}')"
+  log_len="$(wc -l < "$LOG_FILE" | awk '{print $1}')"
+
+  if [ "$log_len" -lt "$prev_len" ]; then
+    # Log shrank (e.g. job restarted); reprint from scratch.
+    cat "$LOG_FILE"
+  elif [ "$log_len" -gt "$prev_len" ]; then
+    new_lines=$((log_len - prev_len))
+    tail -n "$new_lines" "$LOG_FILE"
+  fi
+
+  cp "$LOG_FILE" "$PREV_LOG_FILE"
+}
+
+while true; do
+  METADATA="$(read_metadata)"
+
+  if [ -z "$METADATA" ] || [ "$METADATA" = "null" ]; then
+    echo "no runs found for branch: $BRANCH" >&2
+    sleep 5
+    continue
+  fi
+
+  RUN_ID="$(printf '%s' "$METADATA" | jq -r '.databaseId')"
+  STATUS="$(printf '%s' "$METADATA" | jq -r '.status')"
+
+  RUN_CHANGED=false
+  if [ ! -f "$METADATA_FILE" ] || [ "$RUN_ID" != "$(jq -r '.databaseId' "$METADATA_FILE" 2>/dev/null || true)" ]; then
+    RUN_CHANGED=true
+    [ -f "$PREV_LOG_FILE" ] && rm -f "$PREV_LOG_FILE"
+  fi
+  printf '%s' "$METADATA" > "$METADATA_FILE"
+
+  if [ "$RUN_CHANGED" = true ] || [ "$FIRST_RUN" = true ]; then
+    print_header "$METADATA"
+    FIRST_RUN=false
+  fi
+
+  case "$STATUS" in
+    in_progress|queued|waiting|pending|requested|action_required)
+      # Stream current log in real time.  We request the full log because the
+      # run is active; GitHub returns whatever has been written so far.
+      refresh_log "$RUN_ID" active
+      emit_delta
+      sleep 3
+      ;;
+
+    *)
+      # Run is done.  Refresh the (failed-only or full) log and reprint only
+      # if it has changed.
+      if [ "$ALL_LOGS" = true ]; then
+        refresh_log "$RUN_ID" all
+      else
+        refresh_log "$RUN_ID" failed
+      fi
+
+      if [ ! -f "$PREV_LOG_FILE" ] || ! diff -q "$PREV_LOG_FILE" "$LOG_FILE" >/dev/null 2>&1; then
+        emit_delta
+      fi
+
+      sleep 5
+      ;;
+  esac
+done

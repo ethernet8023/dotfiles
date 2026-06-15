@@ -47,6 +47,7 @@
 
     # programming tools
     devenv
+    gh
     jdk11 # java
     trickle # limit bandwidth artificially
     wabt # webassembly binary tools
@@ -72,6 +73,8 @@
       [net]
       git-fetch-with-cli = true   # use the `git` executable for git operations
     '';
+
+    "bin/gh-watch-branch".source = ./gh-watch-branch;
   };
 
   home.sessionVariables = { };
