@@ -1,8 +1,14 @@
 {
   config,
   pkgs,
+  lib,
   ...
 }:
+let
+  h = import ./hyprland-helpers.nix { inherit lib; };
+
+  mod = "SUPER";
+in
 {
   home.sessionVariables = {
     XDG_SESSION_TYPE = "wayland";
@@ -62,166 +68,174 @@
 
   wayland.windowManager.hyprland = {
     enable = true;
-    package = null;
     portalPackage = null;
     xwayland.enable = true;
     systemd.enable = true;
+
+    configType = "lua";
+
     settings = {
-      "$terminal" = "ghostty";
-      "$mod" = "SUPER";
+      # Everything that used to be a top-level hyprlang section
+      # (general, decoration, input, ...) now lives under hl.config({...}).
+      config = {
+        general = {
+          gaps_in = 4;
+          gaps_out = 4;
+          border_size = 4;
+          layout = "dwindle";
+        };
 
-      exec-once = [
-        "hyprpaper"
-        "gnome-keyring-daemon --start --components=secrets"
-      ];
+        decoration = {
+          rounding = 9;
+          blur.enabled = false;
+          shadow.enabled = false;
+        };
 
-      monitor = [
-        # uhhh how do we do this per-system? lol
-        "DP-2,3840x2160@60,1440x600,1.5"
-        "DP-1,3840x2160@60,0x0,1.5,transform,3"
-        "eDP-1,2560x1600@165,0x0,1"
-      ];
+        animations.enabled = false;
 
-      general = {
-        gaps_in = 4;
-        gaps_out = 4;
-        border_size = 4;
-        layout = "dwindle";
-      };
+        dwindle = {
+          preserve_split = true;
+          force_split = 2;
+        };
 
-      decoration = {
-        rounding = 9;
-        blur.enabled = false;
-        shadow.enabled = false;
-      };
+        master.smart_resizing = true;
 
-      animations.enabled = false;
+        input = {
+          kb_layout = "us";
+          repeat_delay = 300;
+          repeat_rate = 50;
+          follow_mouse = 1;
+          touchpad = {
+            natural_scroll = true;
+            scroll_factor = 0.3;
+            disable_while_typing = false;
+          };
+        };
 
-      dwindle = {
-        preserve_split = true;
-        force_split = 2;
-      };
+        opengl = {
+          nvidia_anti_flicker = 0;
+        };
 
-      master.smart_resizing = true;
-
-      gesture = [
-        "3, horizontal, workspace"
-      ];
-      input = {
-        kb_layout = "us";
-        repeat_delay = 300;
-        repeat_rate = 50;
-        follow_mouse = 1;
-        touchpad = {
-          natural_scroll = true;
-          scroll_factor = 0.3;
-          disable_while_typing = false;
+        misc = {
+          disable_hyprland_logo = true;
+          disable_splash_rendering = true;
+          mouse_move_enables_dpms = true;
+          layers_hog_keyboard_focus = true;
+          disable_autoreload = false;
+          allow_session_lock_restore = true;
+          vrr = 2;
         };
       };
 
-      bindm = [
-        # Move/resize windows with mod + LMB/RMB and dragging
-        "$mod, mouse:272, movewindow"
-        "$mod, mouse:273, resizewindow"
+      on = [
+        # exec-once replacements
+        (h.onEvent "hyprland.start" [
+          "hyprpaper"
+          "gnome-keyring-daemon --start --components=secrets"
+        ])
       ];
 
-      bindl = [
-        ",switch:on:Lid Switch,exec,systemctl suspend"
-        ", XF86AudioPlay, exec, ${pkgs.playerctl}/bin/playerctl play-pause"
-        ", XF86AudioPrev, exec, ${pkgs.playerctl}/bin/playerctl previous"
-        ", XF86AudioNext, exec, ${pkgs.playerctl}/bin/playerctl next"
+      monitor = [
+        (h.monitor {
+          output = "DP-2";
+          mode = "3840x2160@60";
+          position = "1440x600";
+          scale = 1.5;
+        })
+        (h.monitor {
+          output = "DP-1";
+          mode = "3840x2160@60";
+          position = "0x0";
+          scale = 1.5;
+          transform = 3;
+        })
+        (h.monitor {
+          output = "eDP-1";
+          mode = "2560x1600@165";
+          position = "0x0";
+          scale = 1;
+        })
       ];
 
-      binde = [
-        ", XF86MonBrightnessUp, exec, ${pkgs.brightnessctl}/bin/brightnessctl s 5+"
-        ", XF86MonBrightnessDown, exec, ${pkgs.brightnessctl}/bin/brightnessctl s 5-"
-        ", XF86AudioRaiseVolume, exec, ${pkgs.pulseaudio}/bin/pactl set-sink-volume @DEFAULT_SINK@ +3%"
-        ", XF86AudioLowerVolume, exec, ${pkgs.pulseaudio}/bin/pactl set-sink-volume @DEFAULT_SINK@ -3%"
+      # All binds go under the `bind` setting; flags distinguish mouse/locked/repeating.
+      bind =
+        [
+          # basics
+          (h.bind (h.key mod "Return") (h.exec "ghostty"))
+          (h.bind (h.key mod "R") (h.layout "togglesplit"))
+          (h.bind (h.key mod "F") h.window.fullscreenToggle)
+          (h.bind (h.key mod "D") (h.exec ''rofi -show drun -display-drun " " -show-icons''))
+          (h.bind (h.key "${mod} + SHIFT" "Q") h.window.close)
+
+          # window / workspace nav
+          (h.bind (h.key mod "Tab") h.workspace.previous)
+          (h.bind (h.key "ALT" "Tab") h.window.cycleNext)
+          (h.bind (h.key "ALT" "Tab") h.window.bringToTop)
+          (h.bind (h.key mod "Space") h.window.floatToggle)
+          (h.bind (h.key "${mod} + SHIFT" "Space") h.window.pseudoToggle)
+
+          # widgets
+          (h.bind (h.key mod "C") (h.exec "ags toggle-window notificationsCenter"))
+          (h.bind (h.key mod "N") (h.exec "ags toggle-window quicksettings"))
+
+          # screenshots
+          (h.bind (h.noMod "Print") (h.exec "grimblast copysave output # screenshot"))
+          (h.bind (h.key "SUPER" "S") (h.exec "grimblast copysave active"))
+          (h.bind (h.key "SUPER + SHIFT" "S") (h.exec "grimblast copysave area"))
+
+          # special workspace
+          (h.bind (h.key "SUPER + SHIFT" "A") (h.window.moveToWorkspace "special"))
+          (h.bind (h.key "SUPER" "A") (h.raw "hl.dsp.workspace.toggle_special()"))
+
+          # focus
+          (h.bind (h.key mod "Left") (h.focus.dir "l"))
+          (h.bind (h.key mod "Right") (h.focus.dir "r"))
+          (h.bind (h.key mod "Up") (h.focus.dir "u"))
+          (h.bind (h.key mod "Down") (h.focus.dir "d"))
+
+          # move windows
+          (h.bind (h.key "${mod} + SHIFT" "Left") (h.window.moveDir "l"))
+          (h.bind (h.key "${mod} + SHIFT" "Right") (h.window.moveDir "r"))
+          (h.bind (h.key "${mod} + SHIFT" "Up") (h.window.moveDir "u"))
+          (h.bind (h.key "${mod} + SHIFT" "Down") (h.window.moveDir "d"))
+
+          # scroll workspaces
+          (h.bind (h.key mod "mouse_down") h.workspace.next)
+          (h.bind (h.key mod "mouse_up") h.workspace.prev)
+
+          # mouse binds
+          (h.bindf (h.key mod "mouse:272") h.window.drag h.mouse)
+          (h.bindf (h.key mod "mouse:273") h.window.resize h.mouse)
+
+          # media keys (locked so they work at the lock screen)
+          (h.bindf (h.noMod "XF86AudioPlay") (h.exec "${pkgs.playerctl}/bin/playerctl play-pause") h.locked)
+          (h.bindf (h.noMod "XF86AudioPrev") (h.exec "${pkgs.playerctl}/bin/playerctl previous") h.locked)
+          (h.bindf (h.noMod "XF86AudioNext") (h.exec "${pkgs.playerctl}/bin/playerctl next") h.locked)
+
+          # brightness / volume (repeating)
+          (h.bindf (h.noMod "XF86MonBrightnessUp") (h.exec "${pkgs.brightnessctl}/bin/brightnessctl s 5+") h.repeating)
+          (h.bindf (h.noMod "XF86MonBrightnessDown") (h.exec "${pkgs.brightnessctl}/bin/brightnessctl s 5-") h.repeating)
+          (h.bindf (h.noMod "XF86AudioRaiseVolume") (h.exec "${pkgs.pulseaudio}/bin/pactl set-sink-volume @DEFAULT_SINK@ +3%") h.repeating)
+          (h.bindf (h.noMod "XF86AudioLowerVolume") (h.exec "${pkgs.pulseaudio}/bin/pactl set-sink-volume @DEFAULT_SINK@ -3%") h.repeating)
+
+          # mute
+          (h.bindf (h.noMod "XF86AudioMute") (h.exec "${pkgs.pulseaudio}/bin/pactl set-sink-mute @DEFAULT_SINK@ toggle") h.locked)
+
+          # lid switch
+          (h.bindf (h.noMod "switch:on:Lid Switch") (h.exec "systemctl suspend") h.locked)
+        ]
+        ++ (h.workspaceBinds { mod = mod; });
+
+      window_rule = [
+        (h.floatRule { class = "^(pavucontrol)$"; })
+        (h.floatRule { title = "^(Open Files)$"; })
+        (h.floatRule { title = "^(Save File)$"; })
       ];
-
-      bind = [
-        "$mod, Return, exec, $terminal"
-        "$mod, R, layoutmsg, togglesplit"
-        "$mod, F, fullscreen, toggle"
-        ''$mod, D, exec, rofi -show drun -display-drun " " -show-icons''
-        "$mod Shift, Q, killactive"
-
-        "$mod, Tab, workspace, previous"
-        "ALT, Tab, cyclenext"
-        "ALT, Tab, bringactivetotop"
-        "$mod, Space, togglefloating"
-        "$mod Shift, Space, pseudo"
-        "$mod, C, exec, ags toggle-window notificationsCenter"
-        "$mod, N, exec, ags toggle-window quicksettings"
-        ", Print, exec, grimblast copysave output # screenshot"
-        ", XF86AudioMute, exec, ${pkgs.pulseaudio}/bin/pactl set-sink-mute @DEFAULT_SINK@ toggle"
-
-        "SUPER,S, exec, grimblast copysave active"
-        # screenshot area
-        "SUPER_SHIFT,S, exec, grimblast copysave area"
-
-        "SUPER_SHIFT,A,movetoworkspace,special"
-        "SUPER,A,togglespecialworkspace"
-
-        # Move focus with mod + arrow keys
-        "$mod, Left, movefocus, l"
-        "$mod, Right, movefocus, r"
-        "$mod, Up, movefocus, u"
-        "$mod, Down, movefocus, d"
-
-        # Move windows with mod + arrow keys
-        "$mod Shift, Left, movewindow, l"
-        "$mod Shift, Right, movewindow, r"
-        "$mod Shift, Up, movewindow, u"
-        "$mod Shift, Down, movewindow, d"
-        # Scroll through existing workspaces with mod + scroll
-        "$mod, mouse_down, workspace, e+1"
-        "$mod, mouse_up, workspace, e-1"
-      ]
-      ++ (
-        # workspaces
-        # binds $mod + [shift +] {1..10} to [move to] workspace {1..10}
-        builtins.concatLists (
-          builtins.genList (
-            x:
-            let
-              ws =
-                let
-                  c = (x + 1) / 10;
-                in
-                toString (x + 1 - (c * 10));
-            in
-            [
-              "$mod, ${ws}, workspace, ${toString (x + 1)}"
-              "$mod SHIFT, ${ws}, movetoworkspace, ${toString (x + 1)}"
-            ]
-          ) 10
-        )
-      );
-
-      windowrule = [
-        "match:class ^(pavucontrol)$, float on"
-        "match:title ^(Open Files)$, float on"
-        "match:title ^(Save File)$, float on"
-      ];
-
-      opengl = {
-        nvidia_anti_flicker = 0;
-      };
-
-      debug = {
-        # damage_tracking = 0;
-      };
-
-      misc = {
-        disable_hyprland_logo = true;
-        disable_splash_rendering = true;
-        mouse_move_enables_dpms = true;
-        layers_hog_keyboard_focus = true;
-        disable_autoreload = false;
-        allow_session_lock_restore = true;
-        vrr = 2;
-      };
     };
+
+    extraConfig = ''
+      -- TODO: the old hyprlang gesture = "3, horizontal, workspace" needs a lua port.
+      -- hl.config({ gesture = { ... } }) details aren’t documented clearly yet.
+    '';
   };
 }
