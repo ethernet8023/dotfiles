@@ -46,6 +46,7 @@
         mkhl.direnv
         ms-vsliveshare.vsliveshare
         github.vscode-pull-request-github
+        mark-wiemer.vscode-autohotkey-plus-plus
       ];
 
       userSettings = {
