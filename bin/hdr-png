@@ -1,0 +1,209 @@
+#!/usr/bin/env nix-shell
+#! nix-shell -i python3 -p python312Packages.numpy python312Packages.pillow
+"""
+hdr-png — convert an SDR image to an HDR PNG with Rec.2020 + PQ colorspace.
+
+Takes an 8-bit sRGB image (TIFF, PNG, JPEG, …), decodes to linear light,
+optionally boosts brightness into HDR territory (spatially via a mask or
+globally), converts to Rec.2020 primaries, applies the SMPTE ST 2084 (PQ)
+inverse EOTF, and writes a 16-bit PNG with an embedded cICP chunk declaring
+the HDR colorspace.
+
+Usage:
+  hdr-png <input> <output.png> [options]
+
+Options:
+  --peak-nits N    Target peak luminance in the boosted regions (default: 2000)
+  --mask PATH      Grayscale mask image. White (1.0) = boost to peak_nits,
+                   black (0.0) = keep SDR. Without a mask, the whole image
+                   is boosted uniformly.
+  --no-boost       Skip the HDR boost entirely. The image is still converted
+                   to Rec.2020 + PQ but at SDR luminance levels.
+
+The PQ spec ceiling is 10000 nits. Values above that are clamped.
+
+Examples:
+  hdr-png photo.tiff photo_hdr.png --peak-nits 4000
+  hdr-png photo.tiff photo_hdr.png --peak-nits 10000 --mask mask.png
+  hdr-png photo.tiff photo_hdr.png --no-boost
+"""
+
+import sys
+import argparse
+import numpy as np
+from PIL import Image
+import struct
+import zlib
+import io
+
+
+# ── Color math constants ──────────────────────────────────────────────
+
+# BT.2087: linear sRGB → linear Rec.2020 (D65 white)
+M_SRGB_TO_REC2020 = np.array([
+    [0.6274040, 0.3292820, 0.0433136],
+    [0.0690970, 0.9195400, 0.0113612],
+    [0.0163916, 0.0880132, 0.8955950],
+], dtype=np.float32)
+
+# PQ (SMPTE ST 2084) constants
+PQ_M1 = 0.1593017578125   # 2610/16384
+PQ_M2 = 78.84375           # 2523/32
+PQ_C1 = 0.8359375          # 3424/4096
+PQ_C2 = 18.8515625         # 2413/128
+PQ_C3 = 18.6875            # 2392/128
+
+SDR_REF_NITS = 100.0
+PQ_MAX_NITS = 10000.0
+
+
+# ── Color pipeline ───────────────────────────────────────────────────
+
+def srgb_to_linear(srgb: np.ndarray) -> np.ndarray:
+    """Decode sRGB [0,1] → linear light [0,1] (inverse sRGB EOTF)."""
+    srgb = np.clip(srgb, 0.0, 1.0)
+    return np.where(srgb <= 0.04045,
+                    srgb / 12.92,
+                    ((srgb + 0.055) / 1.055) ** 2.4)
+
+
+def linear_to_pq(L: np.ndarray) -> np.ndarray:
+    """Apply PQ (ST 2084) inverse EOTF.
+    Input:  linear luminance normalized so 1.0 = 10000 nits.
+    Output: PQ code values [0, 1].
+    """
+    L = np.clip(L, 0.0, 1.0)
+    Lm = L ** PQ_M1
+    num = PQ_C1 + PQ_C2 * Lm
+    den = 1.0 + PQ_C3 * Lm
+    return (num / den) ** PQ_M2
+
+
+def pq_to_nits(pq: float) -> float:
+    """Inverse PQ for a single scalar — used for reporting peak luminance."""
+    if pq <= 0:
+        return 0.0
+    Lm = pq ** (1.0 / PQ_M2)
+    denom = PQ_C2 - PQ_C3 * Lm
+    if denom <= 0:
+        return PQ_MAX_NITS
+    L = ((Lm - PQ_C1) / denom) ** (1.0 / PQ_M1)
+    return L * PQ_MAX_NITS
+
+
+# ── PNG writer with cICP chunk ───────────────────────────────────────
+
+def write_png_16bit_rgb(path: str, pixels: np.ndarray):
+    """Write a 48-bit RGB PNG with a cICP chunk (Rec.2020 + PQ).
+
+    pixels: uint16 array (H, W, 3), native endian.
+    """
+    h, w, _ = pixels.shape
+    be = pixels.astype('>u2').tobytes()
+
+    def make_chunk(ctype: bytes, data: bytes) -> bytes:
+        chunk = ctype + data
+        crc = zlib.crc32(chunk) & 0xFFFFFFFF
+        return struct.pack('>I', len(data)) + chunk + struct.pack('>I', crc)
+
+    buf = io.BytesIO()
+    buf.write(b'\x89PNG\r\n\x1a\n')
+
+    # IHDR: 16-bit RGB
+    ihdr = struct.pack('>IIBBBBB', w, h, 16, 2, 0, 0, 0)
+    buf.write(make_chunk(b'IHDR', ihdr))
+
+    # cICP: primaries=9 (Rec.2020), transfer=16 (PQ), matrix=0, full_range=1
+    buf.write(make_chunk(b'cICP', struct.pack('BBBB', 9, 16, 0, 1)))
+
+    # IDAT: filter byte 0 (None) per scanline + big-endian pixel data
+    raw = bytearray()
+    stride = w * 6
+    for y in range(h):
+        raw.append(0)
+        raw.extend(be[y * stride:(y + 1) * stride])
+
+    buf.write(make_chunk(b'IDAT', zlib.compress(bytes(raw), 9)))
+    buf.write(make_chunk(b'IEND', b''))
+
+    with open(path, 'wb') as f:
+        f.write(buf.getvalue())
+
+
+# ── Main ─────────────────────────────────────────────────────────────
+
+def main():
+    parser = argparse.ArgumentParser(
+        description='Convert an SDR image to an HDR PNG (Rec.2020 + PQ).')
+    parser.add_argument('input', help='Input image (TIFF, PNG, JPEG, …)')
+    parser.add_argument('output', help='Output PNG path')
+    parser.add_argument('--peak-nits', type=float, default=2000.0,
+                        help='Target peak luminance in boosted regions '
+                             '(default: 2000, max: 10000)')
+    parser.add_argument('--mask', default=None,
+                        help='Grayscale mask image. White=boost to peak_nits, '
+                             'black=keep SDR. Without --mask, the whole image '
+                             'is boosted uniformly.')
+    parser.add_argument('--no-boost', action='store_true',
+                        help='Skip HDR boost. Still converts to Rec.2020 + PQ '
+                             'at SDR luminance.')
+    args = parser.parse_args()
+
+    peak_nits = min(args.peak_nits, PQ_MAX_NITS)
+
+    # 1. Load and decode sRGB → linear
+    img = Image.open(args.input).convert('RGB')
+    arr = np.array(img, dtype=np.float32) / 255.0
+    linear = srgb_to_linear(arr)
+
+    # 2. HDR boost
+    if args.no_boost:
+        linear_hdr = linear
+        print('No boost — SDR luminance preserved.')
+    else:
+        max_gain = peak_nits / SDR_REF_NITS
+
+        if args.mask:
+            mask_img = Image.open(args.mask).convert('L')
+            mask = np.array(mask_img, dtype=np.float32) / 255.0
+            if mask.shape[:2] != linear.shape[:2]:
+                sys.exit(f'Error: mask size {mask.shape[:2]} != '
+                         f'image size {linear.shape[:2]}')
+            gain = 1.0 + mask * (max_gain - 1.0)
+            gain = gain[..., np.newaxis]  # broadcast over RGB
+            print(f'Mask-driven boost: SDR → {peak_nits:.0f} nits '
+                  f'(gain {max_gain:.0f}x in white regions)')
+        else:
+            gain = max_gain
+            print(f'Uniform boost: SDR → {peak_nits:.0f} nits '
+                  f'(gain {max_gain:.0f}x)')
+
+        linear_hdr = linear * gain
+        linear_hdr = np.clip(linear_hdr, 0.0, PQ_MAX_NITS / SDR_REF_NITS)
+
+    # 3. sRGB primaries → Rec.2020 primaries (BT.2087 matrix)
+    h, w, _ = linear_hdr.shape
+    flat = linear_hdr.reshape(-1, 3)
+    rec2020_linear = flat @ M_SRGB_TO_REC2020.T
+    rec2020_linear = np.clip(rec2020_linear, 0.0, PQ_MAX_NITS / SDR_REF_NITS)
+    rec2020_linear = rec2020_linear.reshape(h, w, 3)
+
+    # 4. PQ inverse EOTF
+    L = rec2020_linear / (PQ_MAX_NITS / SDR_REF_NITS)
+    pq = linear_to_pq(L)
+
+    # 5. Quantize and write
+    pq_16 = np.clip(pq * 65535.0, 0, 65535).astype(np.uint16)
+    write_png_16bit_rgb(args.output, pq_16)
+
+    # Report
+    max_pq = pq_16.max() / 65535.0
+    peak_luminance = pq_to_nits(max_pq)
+    print(f'Written: {args.output}')
+    print(f'  {w}x{h}, 48-bit RGB, cICP: Rec.2020 + PQ')
+    print(f'  PQ range: {pq_16.min()}–{pq_16.max()} / 65535')
+    print(f'  Peak luminance: ≈{peak_luminance:.0f} nits')
+
+
+if __name__ == '__main__':
+    main()
