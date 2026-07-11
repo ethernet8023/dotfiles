@@ -147,7 +147,11 @@
       push.default = "simple";
       push.autoSetupRemote = true;
       url."git@github.com:".insteadOf = "https://github.com/";
-      alias.ci = "!git commit -m 'ci: empty commit' --allow-empty && git push && git reset --soft HEAD~ && git push -f";
+      alias = {
+        ci = "!git commit -m 'ci: empty commit' --allow-empty && git push && git reset --soft HEAD~ && git push -f";
+        gone = "!git for-each-ref --format='%(refname:short) %(upstream:track)' refs/heads/ | awk '\$2 == \"[gone]\" { print \$1 }'";
+        bclean = "!git gone | xargs -r git branch -D";
+      };
     };
     signing.format = null;
     lfs.enable = true;
