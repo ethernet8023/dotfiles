@@ -52,11 +52,13 @@
           "browser.ml.chat.menu" = false;
           "extensions.formautofill.addresses.enabled" = false;
           "extensions.formautofill.creditCards.enabled" = false;
-          "print.enabled" = false;
+          "print.enabled" = true;
         };
       };
     };
   };
+
+  catppuccin.firefox.force = true;
 
   xdg.mimeApps.defaultApplications = {
     "text/html" = [ "firefox.desktop" ];
