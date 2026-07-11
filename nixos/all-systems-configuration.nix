@@ -98,7 +98,47 @@
   hardware.enableRedistributableFirmware = true;
   hardware.ledger.enable = true;
 
-  programs.nix-ld.enable = true;
+  programs.nix-ld = {
+    enable = true;
+    libraries = with pkgs; [
+      zlib
+      zstd
+      stdenv.cc.cc
+      curl
+      openssl
+      attr
+      libssh
+      bzip2
+      libxml2
+      acl
+      libsodium
+      util-linux
+      xz
+      systemd
+
+      # electron, jesus
+      glib
+      nspr
+      nss
+      dbus
+      atk
+      cups
+      cairo
+      gtk3
+      pango
+      libx11
+      libxcomposite
+      libxdamage
+      libxext
+      libxfixes
+      libxrandr
+      libgbm
+      expat
+      libxcb
+      libxkbcommon
+      alsa-lib
+    ];
+  };
   programs.fish.enable = true;
   programs.dconf.enable = true;
   programs.nh = {
