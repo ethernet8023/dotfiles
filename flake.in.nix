@@ -2,12 +2,6 @@
   description = "ethie's nice lil nix config :3";
 
   nixConfig = {
-    extra-substituters = [
-      "https://cache.garnix.io"
-    ];
-    extra-trusted-public-keys = [
-      "cache.garnix.io:CTFPyKSLcx5RMJKfLo5EEPUObbA78b0YQ2DTCJXqr9g="
-    ];
     extra-deprecated-features = [ "broken-string-escape" ];
   };
 
