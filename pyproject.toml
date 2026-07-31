@@ -5,11 +5,15 @@ description = "A no-nonsense budget tracker for CIBC card transactions"
 requires-python = ">=3.13"
 dependencies = [
     "typer>=0.15",
-    "playwright>=1.49",
     "matplotlib>=3.9",
     "httpx>=0.28",
     "platformdirs>=4.3",
 ]
+# NOTE: playwright is deliberately NOT listed here. nixpkgs patches its playwright
+# python package to point at the exact chromium revision in playwright-driver.browsers
+# (1.60.0 -> chromium-1228), while the same version on PyPI expects chromium-1223.
+# Installing it from PyPI can never match the nix browser bundle. The devShell
+# supplies it instead; see nix/devShell.nix.
 
 [project.optional-dependencies]
 dev = [
