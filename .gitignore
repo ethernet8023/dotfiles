@@ -1,0 +1,24 @@
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.ruff_cache/
+
+# never commit anything with real money or creds in it
+data/
+downloads/
+*.db
+*.db-wal
+*.db-shm
+.env
+.direnv/
+
+# real bank exports stay local; only the redacted fixture is tracked
+fixtures/cibc_*.csv
+!fixtures/cibc_sample_redacted.csv
+
+# playwright persistent browser profile (holds CIBC session cookies)
+browser/
+result
+result-*
