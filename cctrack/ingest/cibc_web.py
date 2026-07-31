@@ -170,18 +170,19 @@ async def _two_factor_over_sms(page, otvc, on_step=None) -> None:
     say = on_step or (lambda _msg: None)
 
     say("opening the fallback menu")
-    await page.click(
+    await click_settled(page, page.locator(
         'button:has-text("Didn\u2019t receive the code?"), '
-        'button:has-text("Didn\'t receive the code?")',
-        timeout=10_000,
-    )
+        'button:has-text("Didn\'t receive the code?")'
+    ).first)
     await page.get_by_role("button", name="Resend code").wait_for(
         state="visible", timeout=10_000
     )
 
     say("choosing a different contact method")
     picker = page.locator('select[name="ContactMethod"]')
-    await page.click('button:has-text("Use a different contact method")', timeout=10_000)
+    await click_settled(
+        page, page.locator('button:has-text("Use a different contact method")').first
+    )
     await picker.wait_for(state="visible", timeout=10_000)
 
     # Match on option text: the value is an opaque id, the text says "Text: ...".
@@ -199,7 +200,7 @@ async def _two_factor_over_sms(page, otvc, on_step=None) -> None:
 
     # Timestamp before the request so the OTP window starts as late as honestly possible.
     requested_at = datetime.now(UTC)
-    await page.click('button:has-text("Send code")', timeout=10_000)
+    await click_settled(page, page.locator('button:has-text("Send code")').first)
     await otvc.wait_for(state="visible", timeout=20_000)
 
     say("waiting for the code")
@@ -208,11 +209,54 @@ async def _two_factor_over_sms(page, otvc, on_step=None) -> None:
         raise LoginError("no sign-on code arrived within the timeout")
 
     say("submitting the code")
-    await otvc.click()
-    await page.keyboard.type(code, delay=90)
-    await page.get_by_role("button", name="Continue").click()
+    await type_into(page, otvc, code)
+    await click_settled(page, page.get_by_role("button", name="Continue").first)
     await otvc.wait_for(state="detached", timeout=30_000)
     await page.wait_for_load_state("domcontentloaded")
+
+
+async def click_settled(page, locator, *, timeout: int = 15_000) -> None:
+    """Click a control that may still be animating.
+
+    CIBC animates its screen and modal transitions, and camoufox's humanized
+    cursor adds travel time on top, so a click can resolve the element, scroll
+    to it, then hang mid-action. Wait for the bounding box to stop moving, then
+    click; retry once from a settled position if the first attempt times out.
+
+    Deliberately does NOT fall back to dispatch_event('click'): a synthetic DOM
+    event bypasses the framework's own handler, so the click silently does
+    nothing and the flow stalls somewhere later with a much worse error.
+    """
+    await locator.wait_for(state="visible", timeout=timeout)
+
+    for attempt in (1, 2):
+        previous = None
+        for _ in range(25):
+            box = await locator.bounding_box()
+            if box and previous and box == previous:
+                break
+            previous = box
+            await page.wait_for_timeout(100)
+
+        try:
+            await locator.click(timeout=timeout)
+            return
+        except PlaywrightError:
+            if attempt == 2:
+                raise
+            # Let whatever moved settle, then try once more.
+            await page.wait_for_timeout(1000)
+
+
+async def type_into(page, locator, text: str, *, delay: int = 90) -> None:
+    """Click a field and type into it at human pace.
+
+    Typing character by character rather than filling: CIBC's edge scores
+    interaction, and a field that fills instantly with 16 digits does not look
+    like a person.
+    """
+    await click_settled(page, locator)
+    await page.keyboard.type(text, delay=delay)
 
 
 async def sign_in(page, cred: Credential | None = None, on_step=None) -> None:
@@ -265,9 +309,8 @@ async def sign_in(page, cred: Credential | None = None, on_step=None) -> None:
         say("no cookie banner")
 
     say(f"entering card ending {cred.username[-4:]}")
-    await card.click()
-    await page.keyboard.type(cred.username, delay=90)
-    await page.get_by_role("button", name="Continue").click()
+    await type_into(page, card, cred.username)
+    await click_settled(page, page.get_by_role("button", name="Continue").first)
 
     # A remembered card can skip the password screen entirely.
     stage = await first_of(
@@ -279,9 +322,10 @@ async def sign_in(page, cred: Credential | None = None, on_step=None) -> None:
 
     if stage == "password":
         say("entering password")
-        await password.click()
-        await page.keyboard.type(cred.password, delay=90)
-        await page.get_by_role("button", name=re.compile("Sign on|Continue")).first.click()
+        await type_into(page, password, cred.password)
+        await click_settled(
+            page, page.get_by_role("button", name=re.compile("Sign on|Continue")).first
+        )
         stage = await first_of(
             {"otp": otvc, "signed_in": signed_in, "error": error}, timeout_s=45
         )
@@ -399,15 +443,26 @@ MONTHS = (
 CSV_OPTION = "Spreadsheet (CSV)"
 
 HISTORY_DAYS = 400
-"""How far back a backfill reaches.
+"""Default backfill depth when no explicit start date is given.
 
-CIBC's own note on the page: "Credit transactions dating back 13 months from
-today's date." 400 days covers that with a little slack; the server clamps
-anything longer rather than erroring.
+CIBC's page claims "13 months" for credit transactions, but that understates
+it: a 730-day window returned rows back to 2024-07-31. Retention is deeper than
+advertised, so callers wanting everything should pass an explicit `since`.
 
-Note ALL_AVAILABLE is *not* used, despite existing on the form: for a credit
-card it fails server-side with {Result #0001}. Measured, see docs/cibc-download.md.
+What does break is response size. Measured on the VISA, single windows:
+
+    400d  2523 rows   ok
+    500d  2953 rows   ok
+    730d  3894 rows   ok
+   1100d  timeout, no download ever arrives
+   1825d  browser dies
+
+Hence download_range(), which slices any span into month chunks. Chunking also
+makes a backfill resumable: one bad month costs a month, not the whole run.
 """
+
+CHUNK_DAYS = 31
+"""Month-sized slices. Comfortably inside the size limit with room to spare."""
 
 
 class DownloadError(RuntimeError):
@@ -466,7 +521,7 @@ async def _choose_criteria(page, value: str) -> None:
     if radio_id:
         label = page.locator(f'label[for="{radio_id}"]')
         if await label.count():
-            await label.first.click()
+            await click_settled(page, label.first)
             if await radio.is_checked():
                 return
 
@@ -537,12 +592,71 @@ async def download_transactions(
 
     dest_dir.mkdir(parents=True, exist_ok=True)
     async with page.expect_download(timeout=120_000) as info:
-        await submit.click()
+        await click_settled(page, submit)
     download = await info.value
 
-    stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
     slug = re.sub(r"[^a-z0-9]+", "-", account.lower()).strip("-")
-    dest = dest_dir / f"{slug}-{stamp}.csv"
+    # Name by the range, not the clock: chunked runs produce many files and the
+    # range is what tells them apart (and makes reruns overwrite cleanly).
+    dest = dest_dir / f"{slug}-{start:%Y%m%d}-{end:%Y%m%d}.csv"
     await download.save_as(dest)
     say(f"saved {dest.name} ({dest.stat().st_size} bytes)")
     return dest
+
+
+def month_chunks(since: date, until: date, size: int = CHUNK_DAYS) -> list[tuple[date, date]]:
+    """Split a span into inclusive, non-overlapping chunks, oldest first."""
+    if since > until:
+        raise ValueError(f"since {since} is after until {until}")
+    chunks = []
+    start = since
+    while start <= until:
+        end = min(start + timedelta(days=size - 1), until)
+        chunks.append((start, end))
+        start = end + timedelta(days=1)
+    return chunks
+
+
+async def download_range(
+    page,
+    account: str,
+    dest_dir: Path,
+    *,
+    since: date | None = None,
+    until: date | None = None,
+    on_step=None,
+) -> tuple[list[Path], list[tuple[date, date, str]]]:
+    """Download a span in month chunks. Returns (saved paths, failed chunks).
+
+    A single wide request fails above roughly two years: the download simply
+    never arrives, and wider still kills the browser. Chunking sidesteps that
+    and makes the run resumable -- a failed month is reported and skipped
+    rather than losing the whole backfill.
+
+    Overlapping or repeated chunks are harmless; the importer dedups on a
+    transaction fingerprint.
+    """
+    say = on_step or (lambda _msg: None)
+    today = datetime.now(UTC).date()
+    start = since or today - timedelta(days=HISTORY_DAYS)
+    end = until or today
+
+    chunks = month_chunks(start, end)
+    say(f"{len(chunks)} chunk(s) from {start} to {end}")
+
+    saved: list[Path] = []
+    failed: list[tuple[date, date, str]] = []
+    for index, (chunk_start, chunk_end) in enumerate(chunks, start=1):
+        say(f"chunk {index}/{len(chunks)}: {chunk_start} to {chunk_end}")
+        try:
+            saved.append(await download_transactions(
+                page, account, dest_dir,
+                since=chunk_start, until=chunk_end, on_step=say,
+            ))
+        except (PlaywrightError, DownloadError) as exc:
+            reason = f"{type(exc).__name__}: {str(exc)[:80]}"
+            say(f"  chunk failed, continuing: {reason}")
+            failed.append((chunk_start, chunk_end, reason))
+
+    say(f"{len(saved)} chunk(s) saved, {len(failed)} failed")
+    return saved, failed

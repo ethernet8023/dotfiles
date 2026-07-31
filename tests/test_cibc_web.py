@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
+from itertools import pairwise
 
 import pytest
 
@@ -137,6 +138,162 @@ def test_polls_with_the_requested_timestamp(monkeypatch):
 
 
 # --- misc ----------------------------------------------------------------
+
+
+# --- type_into ------------------------------------------------------------
+
+
+class FakeField:
+    """A field whose bounding box settles after `moves` polls."""
+
+    def __init__(self, moves: int = 0):
+        self.moves = moves
+        self.polls = 0
+        self.clicked = False
+        self.waited = False
+
+    async def wait_for(self, state="visible", timeout=30_000):
+        self.waited = True
+
+    async def scroll_into_view_if_needed(self):
+        pass
+
+    async def bounding_box(self):
+        self.polls += 1
+        # Simulate an animation: the box shifts until `moves` polls have passed.
+        y = max(0, self.moves - self.polls)
+        return {"x": 0, "y": y, "width": 100, "height": 20}
+
+    async def click(self, timeout=None):
+        self.clicked = True
+
+    async def dispatch_event(self, name):
+        self.dispatched = name
+
+
+class TypingPage:
+    """Page double for type_into: records what got typed."""
+
+    def __init__(self):
+        self.typed = []
+        self.keyboard = self
+
+    async def wait_for_timeout(self, ms):
+        pass
+
+    async def type(self, text, delay=None):
+        self.typed.append(text)
+
+
+def test_type_into_waits_for_the_element_to_settle():
+    """Regression: clicking mid-animation fails with 'element is not stable'."""
+    page, field = TypingPage(), FakeField(moves=4)
+    asyncio.run(cibc_web.type_into(page, field, "1234"))
+    assert field.waited
+    assert field.clicked
+    assert page.typed == ["1234"]
+    # It polled until the box stopped moving rather than clicking immediately.
+    assert field.polls > 4
+
+
+def test_type_into_is_fast_when_already_stable():
+    page, field = TypingPage(), FakeField(moves=0)
+    asyncio.run(cibc_web.type_into(page, field, "abc"))
+    assert field.polls <= 3
+    assert page.typed == ["abc"]
+
+
+def test_type_into_gives_up_rather_than_hanging():
+    """A perpetually animating element must not block forever."""
+    class NeverSettles(FakeField):
+        async def bounding_box(self):
+            self.polls += 1
+            return {"x": 0, "y": self.polls, "width": 10, "height": 10}
+
+    page, field = TypingPage(), NeverSettles()
+    asyncio.run(cibc_web.type_into(page, field, "x"))
+    assert field.clicked
+    # Bounded: 25 polls per attempt, and the click succeeds on the first try.
+    assert field.polls <= 26
+
+
+def test_click_settled_retries_once_then_succeeds():
+    """A click that hangs on a moving control is retried from a settled position."""
+    from playwright.async_api import Error as PlaywrightError
+
+    class FailsOnce(FakeField):
+        def __init__(self):
+            super().__init__()
+            self.attempts = 0
+
+        async def click(self, timeout=None):
+            self.attempts += 1
+            if self.attempts == 1:
+                raise PlaywrightError("Timeout: performing click action")
+            self.clicked = True
+
+    page, field = TypingPage(), FailsOnce()
+    asyncio.run(cibc_web.click_settled(page, field))
+    assert field.attempts == 2
+    assert field.clicked
+
+
+def test_click_settled_raises_rather_than_faking_a_click():
+    """A synthetic DOM event would bypass the framework handler and stall later."""
+    from playwright.async_api import Error as PlaywrightError
+
+    class AlwaysFails(FakeField):
+        async def click(self, timeout=None):
+            raise PlaywrightError("Timeout: performing click action")
+
+    page, field = TypingPage(), AlwaysFails()
+    with pytest.raises(PlaywrightError):
+        asyncio.run(cibc_web.click_settled(page, field))
+    assert getattr(field, "dispatched", None) is None
+
+
+# --- month_chunks ---------------------------------------------------------
+
+
+def test_chunks_cover_the_whole_span_with_no_gaps_or_overlaps():
+    """A gap loses transactions silently -- the worst possible failure here."""
+    start, end = date(2024, 1, 1), date(2024, 12, 31)
+    chunks = cibc_web.month_chunks(start, end)
+
+    assert chunks[0][0] == start
+    assert chunks[-1][1] == end
+    for (_, prev_end), (next_start, _) in pairwise(chunks):
+        assert next_start == prev_end + timedelta(days=1)
+
+
+def test_chunks_are_inclusive_and_do_not_exceed_the_size():
+    chunks = cibc_web.month_chunks(date(2024, 1, 1), date(2024, 6, 30), size=31)
+    for chunk_start, chunk_end in chunks:
+        assert chunk_start <= chunk_end
+        assert (chunk_end - chunk_start).days < 31
+
+
+def test_a_single_day_is_one_chunk():
+    day = date(2026, 7, 31)
+    assert cibc_web.month_chunks(day, day) == [(day, day)]
+
+
+def test_span_shorter_than_a_chunk_is_not_padded():
+    """Requesting beyond `until` could pull rows the caller did not ask for."""
+    start, end = date(2026, 7, 1), date(2026, 7, 10)
+    assert cibc_web.month_chunks(start, end) == [(start, end)]
+
+
+def test_reversed_range_is_rejected():
+    with pytest.raises(ValueError, match="after"):
+        cibc_web.month_chunks(date(2026, 7, 31), date(2026, 7, 1))
+
+
+def test_two_years_splits_into_manageable_chunks():
+    """A single 730-day request works but 1100 does not; chunks dodge the limit."""
+    chunks = cibc_web.month_chunks(date(2024, 8, 1), date(2026, 7, 31))
+    assert len(chunks) > 20
+    assert all((e - s).days < 31 for s, e in chunks)
 
 
 def test_mask_hides_digits():

@@ -1,13 +1,15 @@
-"""Download CIBC transaction history as CSV.
+"""Download CIBC transaction history as CSV, in month-sized chunks.
 
-By default pulls the full available history for every account (the one-time
-backfill). Pass --since to request a date range instead.
+By default pulls the last 400 days for every account. Pass --since to go
+further back -- retention is deeper than CIBC's "13 months" note suggests.
 
     nix develop -c python3 scripts/download_csv.py
-    nix develop -c python3 scripts/download_csv.py --since 2026-07-01
+    nix develop -c python3 scripts/download_csv.py --since 2024-01-01
     nix develop -c python3 scripts/download_csv.py --account VISA
 
-Files land in downloads/ (gitignored -- they hold real transactions).
+Chunking is not optional: a single request wider than about two years never
+returns, and wider still kills the browser. One file per account per month
+lands in downloads/ (gitignored -- these hold real transactions).
 """
 
 from __future__ import annotations
@@ -19,9 +21,8 @@ from datetime import date
 from pathlib import Path
 
 from cctrack.ingest.cibc_web import (
-    DownloadError,
     LoginError,
-    download_transactions,
+    download_range,
     list_accounts,
     mask,
     session,
@@ -33,9 +34,9 @@ DEST = Path(__file__).resolve().parent.parent / "downloads"
 def parse_args() -> argparse.Namespace:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--since", type=date.fromisoformat, metavar="YYYY-MM-DD",
-                    help="start of a date range; omit for the full history")
+                    help="start date (default: 400 days ago)")
     ap.add_argument("--until", type=date.fromisoformat, metavar="YYYY-MM-DD",
-                    help="end of a date range (default: today)")
+                    help="end date (default: today)")
     ap.add_argument("--account", action="append", metavar="NAME",
                     help="substring of an account name; repeatable "
                          "(default: every account)")
@@ -54,24 +55,28 @@ async def main() -> int:
             print(f"\naccounts: {[mask(a) for a in available]}\n", flush=True)
 
             wanted = args.account or ["Chequing", "Savings", "VISA"]
-            saved = []
+            all_saved, all_failed = [], []
             for name in wanted:
                 if not any(name.lower() in a.lower() for a in available):
                     print(f"!! no account matching {name!r}, skipping", flush=True)
                     continue
-                print(f"downloading {name}...", flush=True)
-                try:
-                    saved.append(await download_transactions(
-                        page, name, DEST,
-                        since=args.since, until=args.until, on_step=say,
-                    ))
-                except DownloadError as exc:
-                    print(f"!! {name}: {exc}", flush=True)
+                print(f"\n=== {name} ===", flush=True)
+                saved, failed = await download_range(
+                    page, name, DEST,
+                    since=args.since, until=args.until, on_step=say,
+                )
+                all_saved.extend(saved)
+                all_failed.extend((name, *f) for f in failed)
 
-            print(f"\n{len(saved)} file(s) saved to {DEST}", flush=True)
-            for path in saved:
-                print(f"  {path.name}  {path.stat().st_size} bytes", flush=True)
-            return 0 if saved else 1
+            total = sum(p.stat().st_size for p in all_saved)
+            print(f"\n{len(all_saved)} file(s), {total:,} bytes total, in {DEST}",
+                  flush=True)
+            if all_failed:
+                print(f"\n{len(all_failed)} chunk(s) failed:", flush=True)
+                for account, start, end, reason in all_failed:
+                    print(f"  {account} {start}..{end}: {reason}", flush=True)
+                print("Rerun with --since/--until to retry just those.", flush=True)
+            return 0 if all_saved else 1
     except LoginError as exc:
         print(f"!! {exc}", flush=True)
         return 1
