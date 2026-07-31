@@ -9,6 +9,7 @@ Must run headed under a compositor. See explore_download.sh.
 from __future__ import annotations
 
 import asyncio
+import re
 import sys
 from pathlib import Path
 
@@ -62,6 +63,11 @@ async def main() -> None:
 
     try:
         async with session(on_step=say) as page:
+            # "Sign off" renders before the account tiles do, so waiting on it
+            # is not enough -- wait for an actual account link.
+            await page.get_by_role("link", name=re.compile("VISA|Chequing")).first.wait_for(
+                state="visible", timeout=30_000
+            )
             home = await describe(page, "accounts home")
             await shot(page, "1-home")
 
@@ -83,17 +89,19 @@ async def main() -> None:
             await describe(page, "account detail")
             await shot(page, "2-account")
 
-            for name in ("Download transactions", "Download", "Export"):
-                control = page.get_by_role("button", name=name)
-                if await control.count() and await control.first.is_visible():
-                    print(f"\nclicking {name!r}", flush=True)
-                    await control.first.click()
-                    await page.wait_for_timeout(2500)
-                    await describe(page, "download dialog")
-                    await shot(page, "3-download")
-                    break
-            else:
-                print("\n!! no download control on the account page", flush=True)
+            # It is an <a>, not a <button> -- which is why a button-only search
+            # found nothing here.
+            link = page.get_by_role("link", name="Download Transactions").first
+            if not await link.count():
+                print("\n!! no Download Transactions link", flush=True)
+                return
+
+            print("\nopening Download Transactions", flush=True)
+            await link.click()
+            await page.wait_for_load_state("domcontentloaded")
+            await page.wait_for_timeout(3000)
+            await describe(page, "download page")
+            await shot(page, "3-download")
     except LoginError as exc:
         print(f"!! {exc}", flush=True)
         sys.exit(1)

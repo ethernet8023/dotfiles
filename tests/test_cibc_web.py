@@ -100,7 +100,7 @@ def test_ignores_purchase_authorization_code(monkeypatch):
     """242226 sends 3-D Secure codes: fresh, six digits, still wrong."""
     fake = FakeBeeper([
         msg(
-            "Enter code: 999888 for CAD 734.49 at Amazon on card ending 6602",
+            "Enter code: 999888 for CAD 734.49 at Amazon on card ending 1234",
             t=T0 + timedelta(seconds=2),
             sender="242226",
         ),

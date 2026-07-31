@@ -409,7 +409,7 @@ Rules, each with a test against a fake client:
   | shortcode | message | use |
   | --- | --- | --- |
   | **242227** | `Enter code: NNNNNN to authorize sign on to online banking` | **this one** |
-  | 242226 | `Enter code: NNNNNN for CAD 734.49 at Amazon on card ending 6602` | 3-D Secure purchase auth — **never** |
+  | 242226 | `Enter code: NNNNNN for CAD 734.49 at Amazon on card ending 1234` | 3-D Secure purchase auth — **never** |
 
   Matching loosely on "CIBC + six digits" can pick up a purchase-authorization code mid-login. Filter on sender first, and require the body to match `to authorize sign on`. Test this explicitly with a 242226 message present.
 - Extract with `re.search(r"\b(\d{6})\b", text)`; if a message has two 6-digit runs, reject it as ambiguous rather than guessing.
@@ -429,7 +429,7 @@ def test_ignores_purchase_authorization_code():
     # 242226 is 3-D Secure, not sign-on. Fresh, six digits, still wrong.
     client = FakeClient([
         msg("999888", t=T0 + timedelta(seconds=2), sender="242226",
-            text="Enter code: 999888 for CAD 734.49 at Amazon on card ending 6602"),
+            text="Enter code: 999888 for CAD 734.49 at Amazon on card ending 1234"),
     ])
     with pytest.raises(OtpTimeout):
         wait_for_otp(since=T0, timeout_s=0, client=client)

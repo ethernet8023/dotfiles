@@ -20,7 +20,7 @@ from __future__ import annotations
 import asyncio
 import re
 from contextlib import asynccontextmanager
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
 import httpx
@@ -380,3 +380,169 @@ async def browser(headless: bool = False):
         humanize=True,  # human-like cursor paths between click targets
     ) as ctx:
         yield ctx
+
+
+# --------------------------------------------------------------------------
+# Transaction download
+# --------------------------------------------------------------------------
+
+DOWNLOAD_URL = (
+    "https://www.cibconline.cibc.com/ebm-resources/public/banking/cibc/"
+    "client/web/index.html#/accounts/download"
+)
+
+MONTHS = (
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December",
+)
+
+CSV_OPTION = "Spreadsheet (CSV)"
+
+HISTORY_DAYS = 400
+"""How far back a backfill reaches.
+
+CIBC's own note on the page: "Credit transactions dating back 13 months from
+today's date." 400 days covers that with a little slack; the server clamps
+anything longer rather than erroring.
+
+Note ALL_AVAILABLE is *not* used, despite existing on the form: for a credit
+card it fails server-side with {Result #0001}. Measured, see docs/cibc-download.md.
+"""
+
+
+class DownloadError(RuntimeError):
+    pass
+
+
+async def list_accounts(page) -> list[str]:
+    """Option labels from the download page's account picker.
+
+    Labels carry the masked number and balance, e.g.
+    "CIBC VISA (1234 5678 9012 3456) $1,234.56".
+    """
+    await open_download_page(page)
+    picker = page.locator("select").first
+    options = await picker.evaluate(
+        "sel => [...sel.options].map(o => o.text.trim())"
+    )
+    return [o for o in options if not o.lower().startswith("choose")]
+
+
+async def open_download_page(page) -> None:
+    """Navigate to the download form and wait for it to render."""
+    if "#/accounts/download" not in page.url:
+        link = page.get_by_role("link", name="Download Transactions").first
+        if await link.count():
+            await link.click()
+        else:
+            await page.goto(DOWNLOAD_URL, wait_until="domcontentloaded")
+
+    # The form is Angular-rendered: eight selects and the criteria radios.
+    await page.locator('input[name="criteria"]').first.wait_for(
+        state="attached", timeout=30_000
+    )
+    await page.locator("select").first.wait_for(state="visible", timeout=30_000)
+
+
+async def _set_date(page, selects: list, start: int, when: date) -> None:
+    """Fill one month/day/year select triple."""
+    await selects[start].select_option(label=MONTHS[when.month - 1])
+    await selects[start + 1].select_option(label=str(when.day))
+    await selects[start + 2].select_option(label=str(when.year))
+
+
+async def _choose_criteria(page, value: str) -> None:
+    """Select one of the criteria radios.
+
+    The real <input type=radio> sits under a styled <div class="ui-wrapper">
+    that intercepts pointer events, so a direct .check() times out. Click the
+    associated <label> -- what a person actually clicks -- and fall back to
+    .check(force=True) if the markup has no usable label.
+    """
+    radio = page.locator(f'input[name="criteria"][value="{value}"]')
+    await radio.wait_for(state="attached", timeout=20_000)
+
+    radio_id = await radio.get_attribute("id")
+    if radio_id:
+        label = page.locator(f'label[for="{radio_id}"]')
+        if await label.count():
+            await label.first.click()
+            if await radio.is_checked():
+                return
+
+    await radio.check(force=True)
+    if not await radio.is_checked():
+        raise DownloadError(f"could not select criteria {value!r}")
+
+
+async def download_transactions(
+    page,
+    account: str,
+    dest_dir: Path,
+    *,
+    since: date | None = None,
+    until: date | None = None,
+    on_step=None,
+) -> Path:
+    """Download one account's transactions as CSV. Returns the saved path.
+
+    With no dates, requests the full retained history (HISTORY_DAYS back).
+    Otherwise requests exactly the window given.
+
+    Always DATE_RANGE. The form also offers ALL_AVAILABLE and LAST_DOWNLOAD and
+    neither is usable: ALL_AVAILABLE fails server-side for credit cards with
+    {Result #0001}, and LAST_DOWNLOAD is stateful -- CIBC marks a window
+    consumed whether or not our import succeeded, so a crash loses those
+    transactions permanently. A caller-chosen range is idempotent and safe to
+    overlap; the importer dedups.
+    """
+    say = on_step or (lambda _msg: None)
+    await open_download_page(page)
+
+    selects = await page.locator("select").all()
+    if len(selects) < 8:
+        raise DownloadError(f"expected 8 selects on the download form, found {len(selects)}")
+
+    account_picker, software_picker = selects[0], selects[-1]
+
+    matches = [
+        label for label in await account_picker.evaluate(
+            "sel => [...sel.options].map(o => o.text.trim())"
+        )
+        if account.lower() in label.lower()
+    ]
+    if not matches:
+        raise DownloadError(f"no account matching {account!r} in the picker")
+    await account_picker.select_option(label=matches[0])
+    say(f"account: {mask(matches[0])}")
+
+    today = datetime.now(UTC).date()
+    start = since or today - timedelta(days=HISTORY_DAYS)
+    end = until or today
+
+    await _choose_criteria(page, "DATE_RANGE")
+    await _set_date(page, selects, 1, start)
+    await _set_date(page, selects, 4, end)
+    say(f"range: {start} to {end}")
+
+    await software_picker.select_option(label=CSV_OPTION)
+
+    # CIBC's UI kit hides the real control under a styled <div class="ui-wrapper">
+    # -- the <button type=submit> measures 0x0 and only the wrapper is clickable.
+    # Same pattern as the criteria radios.
+    submit = page.locator(
+        'div.ui-wrapper:has-text("Download Transactions"), '
+        'button[type=submit]:has-text("Download Transactions")'
+    ).last
+
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    async with page.expect_download(timeout=120_000) as info:
+        await submit.click()
+    download = await info.value
+
+    stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+    slug = re.sub(r"[^a-z0-9]+", "-", account.lower()).strip("-")
+    dest = dest_dir / f"{slug}-{stamp}.csv"
+    await download.save_as(dest)
+    say(f"saved {dest.name} ({dest.stat().st_size} bytes)")
+    return dest
