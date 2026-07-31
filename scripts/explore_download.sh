@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Real CIBC sign-on attempt, headed inside a hidden compositor.
+# Explore CIBC's transaction-download UI, headed inside a hidden compositor.
 #
-# Requires BW_SESSION in the environment. ONE attempt, stops at the 2FA prompt.
+# Requires BW_SESSION in the environment. Downloads nothing.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -15,4 +15,4 @@ export WLR_LIBINPUT_NO_DEVICES=1
 unset WAYLAND_DISPLAY
 export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
 
-exec cage -- python3 scripts/login_probe.py
+exec cage -- python3 scripts/explore_download.py
