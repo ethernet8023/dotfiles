@@ -20,15 +20,21 @@ Verified on this machine, 2026-07-31:
 | `uv` | `/home/ari/.local/bin/uv` |
 | `python3` | 3.13.13 (PEP 668 — must use a venv) |
 | `nix` | Lix 2.96, flakes available |
-| Beeper Desktop | running, API listening on `127.0.0.1:23373` (`/v0/get-token` → 404, so the server is up; the real routes are elsewhere) |
-| `bw` / `rbw` | **MISSING** — must be added to the devShell |
-| `playwright` | MISSING — comes in via uv deps + `playwright install chromium` |
+| Beeper Desktop | running, API on `127.0.0.1:23373`. **API is v1** (not v0) with OAuth 2.0 + dynamic client registration + PKCE. Flow completed, token acquired, `read` scope is enough. |
+| `bw` / `rbw` | added to the devShell — `bitwarden-cli` 2026.7.0, currently **unauthenticated** (`bw login` needed) |
+| `playwright` | **from nix, not pip.** nixpkgs patches the python package to match its own chromium build; pypi's wheel expects a different revision and they will never agree. `python313.withPackages [ ps.playwright ]` + `playwright-driver.browsers`. |
+| `cage` | added to the devShell — required, see Task 10 |
 
-### Assumptions to confirm before coding (do not guess)
+### Settled by measurement (was: assumptions)
+
+1. **2FA delivery is SMS**, confirmed by the user, and real CIBC codes are visible in Beeper history. The Beeper OTP path is viable. Shortcode `242227` is sign-on; `242226` is 3-D Secure purchase auth and must be excluded — see Task 9.
+2. **CIBC will not serve a headless browser.** Headless chromium is dropped during the h2 handshake by Akamai; JS stealth patches cannot help. Everything runs headed under `cage`. Full matrix in Task 10.
+3. **The sign-on form is two-step** (card number, then password) and lives behind a redirect to `secure.cibc.com` with a short-lived session id. Selectors harvested to `docs/cibc-selectors.md`.
+
+### Assumptions still to confirm before coding (do not guess)
 
 1. **CIBC CSV shape.** Believed to be headerless: `date,description,debit,credit,card_number`, with debit/credit in separate columns and one blank. **Task 2 requires a real exported file** — ask the user to download one month manually from `My Accounts → Download transactions` and drop it at `fixtures/cibc_sample.csv`. Do not write the parser against an imagined format.
-2. **2FA delivery.** Assumed SMS to the phone, synced into Beeper. If CIBC pushes to their app instead, the OTP path changes (Task 10 becomes "prompt the user in the terminal" — still ship the rest).
-3. **Bitwarden item name.** Need the exact item name/ID for the CIBC login. Ask.
+2. **Bitwarden item name.** Need the exact item name/ID for the CIBC login. Ask.
 
 ### Security rules for this repo
 
@@ -399,8 +405,15 @@ def wait_for_otp(since: datetime, timeout_s: int = 120,
 ```
 
 Rules, each with a test against a fake client:
-- Only consider messages with `timestamp > since`. A code that arrived before the login attempt is **stale and must be ignored** — this is the whole point.
-- Sender must match a CIBC allowlist (from the Task 8 doc).
+- Only consider messages with `timestamp > since`. A code that arrived before the login attempt is **stale and must be ignored** — this is the whole point. Beeper's search takes a server-side `dateAfter`, so pass `since` straight through *and* re-check locally; belt and braces on the one rule that matters.
+- **Sender must be shortcode `242227` exactly.** CIBC uses two shortcodes and they are not interchangeable:
+
+  | shortcode | message | use |
+  | --- | --- | --- |
+  | **242227** | `Enter code: NNNNNN to authorize sign on to online banking` | **this one** |
+  | 242226 | `Enter code: NNNNNN for CAD 734.49 at Amazon on card ending 6602` | 3-D Secure purchase auth — **never** |
+
+  Matching loosely on "CIBC + six digits" can pick up a purchase-authorization code mid-login. Filter on sender first, and require the body to match `to authorize sign on`. Test this explicitly with a 242226 message present.
 - Extract with `re.search(r"\b(\d{6})\b", text)`; if a message has two 6-digit runs, reject it as ambiguous rather than guessing.
 - Timeout raises `OtpTimeout`, and the caller falls back to `typer.prompt("enter the code from your phone")` when interactive.
 
@@ -413,6 +426,15 @@ def test_ignores_message_older_than_since():
 def test_returns_fresh_code():
     client = FakeClient([msg("654321", t=T0 + timedelta(seconds=5))])
     assert wait_for_otp(since=T0, client=client) == "654321"
+
+def test_ignores_purchase_authorization_code():
+    # 242226 is 3-D Secure, not sign-on. Fresh, six digits, still wrong.
+    client = FakeClient([
+        msg("999888", t=T0 + timedelta(seconds=2), sender="242226",
+            text="Enter code: 999888 for CAD 734.49 at Amazon on card ending 6602"),
+    ])
+    with pytest.raises(OtpTimeout):
+        wait_for_otp(since=T0, timeout_s=0, client=client)
 ```
 
 Commit.
@@ -423,15 +445,42 @@ Commit.
 
 **Objective:** Get to the logged-in accounts page, unattended.
 
-**Files:** Create `cctrack/ingest/cibc_web.py`, `docs/cibc-selectors.md`
+**Files:** Create `cctrack/ingest/cibc_web.py`; `docs/cibc-selectors.md` already exists (harvested, see below)
 
-**Approach — build it interactively, do not guess selectors:**
+**Settled by measurement — do not re-litigate:**
+
+CIBC's edge is Akamai Bot Manager. It refuses headless chromium *at the transport layer*:
+
+| mode | result |
+| --- | --- |
+| headless shell (playwright default) | `ERR_HTTP2_PROTOCOL_ERROR` |
+| full chromium, new-headless (`channel="chromium"`) | `ERR_HTTP2_PROTOCOL_ERROR` |
+| new-headless + `navigator.webdriver` stealth patches | `ERR_HTTP2_PROTOCOL_ERROR` |
+| headed, visible window | 200 |
+| **headed under `cage` (`WLR_BACKENDS=headless`)** | **200, front door + sign-on** |
+
+The connection dies during the h2 handshake — before any HTML, before any JS. JS stealth patches cannot help because the page they run in never loads. `channel="chromium"` rules out the headless-shell binary as the cause.
+
+So the scraper **always runs `headless=False`**, wrapped in `cage`. There is no `--headless` flag; it would only ever fail. Re-run `scripts/diag_cibc_stealth.py` + `scripts/diag_cibc_cage.sh` if this ever regresses.
+
+Entrypoint must be a shell wrapper like `scripts/harvest_cibc_selectors.sh`:
 
 ```bash
-nix develop -c playwright codegen https://www.cibconline.cibc.com/
+export WLR_BACKENDS=headless WLR_LIBINPUT_NO_DEVICES=1
+unset WAYLAND_DISPLAY
+exec cage -- python3 -m cctrack sync
 ```
 
-Walk the real login by hand while codegen records it. Harvest the selectors into `docs/cibc-selectors.md` with a note on which are fragile.
+**The real sign-on flow (harvested, not guessed):**
+
+1. `https://www.cibconline.cibc.com/ebm-resources/public/client/web/index.html#/signon` **redirects** to `secure.cibc.com/etc/designs/cibcsecure/client/index.html?...&cahSessionId=<...>&iat=<ms>&exp=<ms>`. The session id is short-lived (~15 min). **Never hardcode the post-redirect URL** — always start from the public one and follow.
+2. Login is **two-step**. Page one has *only* the card number field and Continue. The password field appears on the next screen. A single fill-both-and-submit will not work.
+3. Element ids are Angular-generated (`textfield-40-input`, `checkbox-22-input`) and **will drift on redeploy**. Select on stable attributes:
+   - card number: `input[name="Card"]` (maxlength 19, `autocomplete="username"`)
+   - remember card: `input[name="RememberCard"]` — **tick it**, fewer 2FA prompts
+   - submit: `button:has-text("Continue")`
+   - form: `form[name="card-number-frm-cah"]`
+4. A **OneTrust cookie banner** (`#onetrust-accept-btn-handler`) overlays the page and will intercept clicks. Dismiss it first, tolerating absence once the cookie is stored.
 
 Then implement:
 
@@ -442,9 +491,8 @@ async def download_transactions(page, account_label: str,
 ```
 
 Hard requirements:
-- **Persistent browser context** at `~/.local/share/cctrack/browser/` — CIBC remembers trusted devices, so after the first run 2FA usually stops firing entirely. This is the single biggest reliability win.
-- `headless=False` by default; `--headless` opt-in.
-- Prefer role/label selectors over CSS classes.
+- **Persistent browser context** at `~/.local/share/cctrack/browser/` — CIBC remembers trusted devices, so after the first run 2FA usually stops firing entirely. This is the single biggest reliability win, and it pairs with the RememberCard checkbox.
+- Selectors live in this one module, nowhere else.
 - On any failure, screenshot to `downloads/failure-<ts>.png` and re-raise. Debugging a bank scraper blind is misery.
 - Never log the page content of an authenticated page.
 
