@@ -469,6 +469,16 @@ class DownloadError(RuntimeError):
     pass
 
 
+class NoTransactions(DownloadError):
+    """The window is valid but held no transactions.
+
+    CIBC answers with "There are no transactions to display for the date range
+    you selected" ({Result #0121}) and never starts a download, so a naive
+    expect_download waits out its whole timeout and reports a failure. On a
+    low-activity account an empty month is normal, not an error.
+    """
+
+
 async def list_accounts(page) -> list[str]:
     """Option labels from the download page's account picker.
 
@@ -591,8 +601,19 @@ async def download_transactions(
     ).last
 
     dest_dir.mkdir(parents=True, exist_ok=True)
-    async with page.expect_download(timeout=120_000) as info:
+
+    # An empty window never starts a download -- CIBC shows "no transactions to
+    # display" ({Result #0121}) instead. Waiting only on the download would burn
+    # the full timeout and report an ordinary empty month as a failure.
+    empty_notice = page.get_by_text("no transactions to display", exact=False)
+    async with page.expect_download(timeout=90_000) as info:
         await click_settled(page, submit)
+        for _ in range(30):
+            if await empty_notice.count():
+                raise NoTransactions(
+                    f"{account}: no transactions between {start} and {end}"
+                )
+            await page.wait_for_timeout(500)
     download = await info.value
 
     slug = re.sub(r"[^a-z0-9]+", "-", account.lower()).strip("-")
@@ -645,6 +666,7 @@ async def download_range(
     say(f"{len(chunks)} chunk(s) from {start} to {end}")
 
     saved: list[Path] = []
+    empty: list[tuple[date, date]] = []
     failed: list[tuple[date, date, str]] = []
     for index, (chunk_start, chunk_end) in enumerate(chunks, start=1):
         say(f"chunk {index}/{len(chunks)}: {chunk_start} to {chunk_end}")
@@ -653,10 +675,14 @@ async def download_range(
                 page, account, dest_dir,
                 since=chunk_start, until=chunk_end, on_step=say,
             ))
+        except NoTransactions:
+            # Normal on a low-activity account, not a failure.
+            say("  no transactions in this window")
+            empty.append((chunk_start, chunk_end))
         except (PlaywrightError, DownloadError) as exc:
             reason = f"{type(exc).__name__}: {str(exc)[:80]}"
             say(f"  chunk failed, continuing: {reason}")
             failed.append((chunk_start, chunk_end, reason))
 
-    say(f"{len(saved)} chunk(s) saved, {len(failed)} failed")
+    say(f"{len(saved)} saved, {len(empty)} empty, {len(failed)} failed")
     return saved, failed

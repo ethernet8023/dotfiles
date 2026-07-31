@@ -76,7 +76,10 @@ async def main() -> int:
                 for account, start, end, reason in all_failed:
                     print(f"  {account} {start}..{end}: {reason}", flush=True)
                 print("Rerun with --since/--until to retry just those.", flush=True)
-            return 0 if all_saved else 1
+                return 1
+            # No files is fine when every window was genuinely empty; only an
+            # actual failure is worth a non-zero exit.
+            return 0
     except LoginError as exc:
         print(f"!! {exc}", flush=True)
         return 1

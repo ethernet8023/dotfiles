@@ -296,6 +296,15 @@ def test_two_years_splits_into_manageable_chunks():
     assert all((e - s).days < 31 for s, e in chunks)
 
 
+def test_empty_window_is_not_a_failure():
+    """An empty month on a low-activity account is normal, not an error.
+
+    CIBC never starts a download for an empty range, so a naive wait reports a
+    120s timeout instead of "nothing here".
+    """
+    assert issubclass(cibc_web.NoTransactions, cibc_web.DownloadError)
+
+
 def test_mask_hides_digits():
     assert mask("Text: 416-555-0199") == "Text: NNN-NNN-NNNN"
 

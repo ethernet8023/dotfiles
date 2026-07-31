@@ -37,8 +37,37 @@ only the first was anticipated:
 2. `ALL_AVAILABLE` is simply **broken** for a credit card. It is on the form and
    it does not work.
 
-History reaches back **13 months** ("Credit transactions dating back 13 months
-from today's date", stated on the page). `HISTORY_DAYS = 400` covers it.
+## How far back it goes
+
+Two separate limits, and conflating them cost a while:
+
+**Response size** caps a *single* request at roughly two years. Measured:
+
+| window | result |
+| --- | --- |
+| 400d / 500d / 730d | ok (2523 / 2953 / 3894 rows) |
+| 1100d | download never arrives |
+| 1825d | browser dies |
+
+`download_range()` slices any span into 31-day chunks, which removes this
+ceiling entirely — 26 chunks returned 4162 rows with zero gaps.
+
+**Retention** is the real floor, found by probing one month per period:
+
+| probe | result |
+| --- | --- |
+| 2019-06, 2021-06, 2022-06, 2022-09 | fails |
+| **2022-12** | 124 rows ✓ |
+| 2023-02 / 2023-04 / 2023-06 | ok |
+
+So history reaches back to somewhere between **2022-09 and 2022-12** — about
+three years, not the "13 months" the page claims. `HISTORY_DAYS = 400` is only
+a default for routine runs; pass an explicit `--since` to reach the floor.
+
+A request below the floor does not error cleanly, it simply never produces a
+download and burns the full 120s timeout. That is why a naive sweep from 2019
+is unusably slow, and why chunk failures are reported and skipped rather than
+retried.
 
 ## The submit button
 
