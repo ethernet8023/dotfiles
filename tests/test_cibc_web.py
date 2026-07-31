@@ -122,11 +122,11 @@ def test_autofill_hash_does_not_confuse_the_regex(monkeypatch):
     """Real messages end with an autofill hash that can contain digits."""
     text = (
         "Do not share this code with anyone. CIBC will never call you for this code. "
-        "Enter code: 497492 to authorize sign on to online banking. oj8q54qM2Vm"
+        "Enter code: 123456 to authorize sign on to online banking. oj8q54qM2Vm"
     )
     fake = FakeBeeper([msg(text, t=T0 + timedelta(seconds=3))])
     monkeypatch.setattr(cibc_web, "BeeperClient", lambda: fake)
-    assert asyncio.run(wait_for_otp(T0, timeout_s=5)) == "497492"
+    assert asyncio.run(wait_for_otp(T0, timeout_s=5)) == "123456"
 
 
 def test_polls_with_the_requested_timestamp(monkeypatch):
