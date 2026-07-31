@@ -20,6 +20,7 @@ import webbrowser
 from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
+from typing import ClassVar, Self
 
 import httpx
 from platformdirs import user_config_dir
@@ -84,9 +85,9 @@ def _pkce_pair() -> tuple[str, str]:
 
 
 class _CallbackHandler(BaseHTTPRequestHandler):
-    result: dict = {}
+    result: ClassVar[dict] = {}
 
-    def do_GET(self) -> None:  # noqa: N802 (stdlib naming)
+    def do_GET(self) -> None:
         parsed = urllib.parse.urlparse(self.path)
         if parsed.path != "/callback":
             self.send_response(404)
@@ -101,7 +102,7 @@ class _CallbackHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
-    def log_message(self, format: str, *args) -> None:  # noqa: A002
+    def log_message(self, format: str, *args) -> None:
         """Silence the default stderr access log."""
 
 
@@ -215,7 +216,7 @@ class BeeperClient:
     def close(self) -> None:
         self._http.close()
 
-    def __enter__(self) -> BeeperClient:
+    def __enter__(self) -> Self:
         return self
 
     def __exit__(self, *_exc) -> None:
