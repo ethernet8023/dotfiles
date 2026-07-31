@@ -46,7 +46,7 @@ async def probe(pw, *, headless: bool, url: str, label: str) -> bool:
         print(f"  url:    {page.url}", flush=True)
         print(f"  title:  {title!r}", flush=True)
         ok = bool(status and status < 400)
-    except Exception as exc:  # noqa: BLE001 - diagnostic
+    except Exception as exc:
         print(f"  RESULT: {type(exc).__name__}: {str(exc)[:160]}", flush=True)
 
     if ok:

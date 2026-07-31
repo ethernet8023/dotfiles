@@ -46,7 +46,7 @@ async def probe(pw, label: str, *, channel: str | None, stealth: bool) -> dict:
     result = {"label": label, "channel": channel, "stealth": stealth, "ok": False}
     try:
         browser = await pw.chromium.launch(**kwargs)
-    except Exception as exc:  # noqa: BLE001 - diagnostic
+    except Exception as exc:
         result["error"] = f"launch failed: {type(exc).__name__}: {str(exc)[:120]}"
         print(f"  {result['error']}", flush=True)
         return result
@@ -68,7 +68,7 @@ async def probe(pw, label: str, *, channel: str | None, stealth: bool) -> dict:
         result["title"] = title
         result["ok"] = bool(status and status < 400)
         print(f"  status={status} title={title!r}", flush=True)
-    except Exception as exc:  # noqa: BLE001 - diagnostic
+    except Exception as exc:
         result["error"] = f"{type(exc).__name__}: {str(exc)[:120]}"
         print(f"  {result['error']}", flush=True)
 

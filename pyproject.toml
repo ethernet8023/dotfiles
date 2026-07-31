@@ -37,3 +37,10 @@ addopts = "-q"
 
 [tool.ruff]
 line-length = 100
+
+[tool.ruff.lint.per-file-ignores]
+# scripts/ holds one-off diagnostic probes against live CIBC and Beeper. They
+# deliberately catch broadly and report, because a probe that crashes tells us
+# less than one that prints what went wrong and carries on.
+"scripts/*" = ["BLE001"]
+

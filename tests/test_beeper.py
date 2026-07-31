@@ -123,6 +123,32 @@ def test_search_passes_date_after_to_server():
     assert seen["limit"] == "5"
 
 
+def test_limit_is_clamped_to_server_maximum():
+    """Regression: limit=25 returns 400 VALIDATION_ERROR (too_big, maximum 20).
+
+    Measured against the live API, and easy to misread as a transient fault.
+    """
+    seen = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.update(dict(request.url.params))
+        return httpx.Response(200, json={"items": []})
+
+    client_with(handler).search_messages(limit=25)
+    assert seen["limit"] == "20"
+
+
+def test_limit_below_maximum_passes_through():
+    seen = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.update(dict(request.url.params))
+        return httpx.Response(200, json={"items": []})
+
+    client_with(handler).search_messages(limit=5)
+    assert seen["limit"] == "5"
+
+
 def test_search_omits_unset_filters():
     seen = {}
 

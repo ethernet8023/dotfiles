@@ -205,6 +205,10 @@ def load_token() -> str:
 
 
 class BeeperClient:
+    MAX_LIMIT = 20
+    """Server-side cap on search `limit`. Over this, search returns 400
+    VALIDATION_ERROR (too_big) rather than truncating."""
+
     def __init__(self, token: str | None = None, base_url: str = DEFAULT_BASE_URL) -> None:
         self._token = token or load_token()
         self._http = httpx.Client(
@@ -246,8 +250,11 @@ class BeeperClient:
 
         `date_after` is an ISO 8601 datetime; Beeper filters server-side to messages
         strictly after it. That is what makes stale-OTP rejection cheap and reliable.
+
+        `limit` is clamped to MAX_LIMIT: the server rejects anything larger with a
+        400 rather than truncating, which is easy to misread as a transient fault.
         """
-        params: dict[str, object] = {"limit": limit}
+        params: dict[str, object] = {"limit": min(limit, self.MAX_LIMIT)}
         if query:
             params["query"] = query
         if date_after:

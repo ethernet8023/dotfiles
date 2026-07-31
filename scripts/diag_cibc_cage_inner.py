@@ -49,7 +49,7 @@ async def main() -> None:
                     await page.screenshot(path=str(shot))
                     entry["screenshot"] = str(shot)
                     print(f"[{label}] shot: {shot}", flush=True)
-            except Exception as exc:  # noqa: BLE001 - diagnostic
+            except Exception as exc:
                 entry["error"] = f"{type(exc).__name__}: {str(exc)[:140]}"
                 print(f"[{label}] {entry['error']}", flush=True)
             results.append(entry)

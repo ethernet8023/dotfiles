@@ -33,7 +33,7 @@ async def attempt(label: str, launch_args: list[str], goto_kwargs: dict) -> None
             resp = await page.goto(URL, **goto_kwargs)
             print(f"  RESULT: status={resp.status if resp else None} url={page.url}")
             print(f"  title: {await page.title()}")
-        except Exception as exc:  # noqa: BLE001 - diagnostic script
+        except Exception as exc:
             print(f"  RESULT: {type(exc).__name__}: {str(exc)[:200]}")
         await browser.close()
 
