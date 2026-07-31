@@ -227,57 +227,66 @@ async def main() -> None:
         print("\n== step 7: send the code ==", flush=True)
         await page.click('button:has-text("Send code")', timeout=10_000)
         print("  clicked Send code", flush=True)
-
-        await page.wait_for_timeout(6000)
-        await dump_options(page, "step7")
+        await page.wait_for_timeout(4000)
         await shot(page, "7-code-requested")
 
-        print("\n>>> STOPPING HERE. Not submitting any code. <<<", flush=True)
-        print(f">>> T0 was {t0.isoformat()} <<<", flush=True)
+        print("\n== step 8: read the code out of Beeper ==", flush=True)
+        code = await wait_for_otp(t0)
+        if not code:
+            print("  !! no OTP arrived", flush=True)
+            await ctx.close()
+            sys.exit(1)
+        print(f"  got a {len(code)}-digit code", flush=True)
 
-        await watch_beeper(t0)
+        print("\n== step 9: submit it ==", flush=True)
+        await page.fill('input[name="OTVC"]', code)
+        await page.click('button:has-text("Continue")')
+        await page.wait_for_timeout(9000)
 
-        await shot(page, "8-final")
+        print(f"  url: {page.url[:100]}", flush=True)
+        print(f"  title: {await page.title()!r}", flush=True)
+        await dump_options(page, "step9")
+        await shot(page, "9-after-otp")
+
+        signed_in = "signon" not in page.url.lower()
+        print(f"\n>>> SIGNED IN: {signed_in} <<<", flush=True)
+
+        await shot(page, "10-final")
         await ctx.close()
 
 
-async def watch_beeper(t0, timeout_s: int = 90, poll_s: int = 5) -> None:
-    """Poll Beeper for anything new after t0 and report the real sender.
+async def wait_for_otp(t0, timeout_s: int = 120, poll_s: int = 4) -> str | None:
+    """Poll Beeper for a fresh CIBC sign-on code.
 
-    This is the whole point of the run: the plan assumed shortcode 242227, but
-    those messages say "CIBC US" and belong to a different account. Report what
-    actually arrives rather than what was assumed.
+    Only accepts messages after t0 (no replaying an old code), from shortcode
+    242227, whose body says "to authorize sign on" -- 242226 sends 3-D Secure
+    purchase codes that look identical otherwise.
     """
+    import re
+
     from cctrack.secrets.beeper import BeeperClient
 
-    print(f"\n== watching Beeper for messages after {t0.isoformat()} ==", flush=True)
     deadline = asyncio.get_event_loop().time() + timeout_s
-    seen: set[str] = set()
-
     with BeeperClient() as bc:
         while asyncio.get_event_loop().time() < deadline:
             try:
-                msgs = bc.search_messages(date_after=t0.isoformat(), limit=25)
+                msgs = bc.search_messages(date_after=t0.isoformat(), limit=20)
             except Exception as exc:
-                print(f"  beeper query failed: {type(exc).__name__}: {exc}", flush=True)
-                break
+                print(f"  beeper query failed: {type(exc).__name__}", flush=True)
+                await asyncio.sleep(poll_s)
+                continue
 
             for m in msgs:
-                if m.id in seen:
-                    continue
-                seen.add(m.id)
                 text = m.text or ""
-                digits = "".join(ch for ch in text if ch.isdigit())
-                flag = "  <-- LOOKS LIKE AN OTP" if len(digits) >= 6 else ""
-                print(f"  NEW  sender_id={m.sender_id!r}", flush=True)
-                print(f"       sender_name={m.sender_name!r} account={m.account_id!r}", flush=True)
-                print(f"       ts={m.timestamp}", flush=True)
-                print(f"       text={mask(text)[:120]!r}{flag}", flush=True)
+                if m.sender_name != "242227" or "to authorize sign on" not in text:
+                    continue
+                found = re.search(r"Enter code:\s*(\d{6})\b", text)
+                if found:
+                    print(f"  OTP from {m.sender_name} at {m.timestamp}", flush=True)
+                    return found.group(1)
 
             await asyncio.sleep(poll_s)
-
-    if not seen:
-        print("  nothing new arrived in Beeper", flush=True)
+    return None
 
 
 if __name__ == "__main__":
