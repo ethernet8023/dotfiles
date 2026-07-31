@@ -354,10 +354,13 @@ Test with Typer's `CliRunner` against a tmp DB. Then run it for real on the user
 
 **Files:** Create `cctrack/secrets/bitwarden.py`, `tests/test_bitwarden.py`
 
+**The item is `cibc.com`** (confirmed with the user; login username is a 16-digit card number ending 1883). Not `cibc business` — that is a different account with security questions and a PIN. Default to `cibc.com`, overridable via `--bw-item` / `CCTRACK_BW_ITEM`.
+
 `get_login(item_name) -> Credential(username, password)` shells out to
 `bw get item <name> --raw` and parses `login.username` / `login.password` from JSON.
 
 - If `BW_SESSION` is unset → raise `BitwardenLocked("run: export BW_SESSION=$(bw unlock --raw)")`. Never prompt inside a cron run.
+- Pass the session via the subprocess `env`, never on the argv — anything on argv is world-readable in `/proc/<pid>/cmdline`.
 - `Credential` overrides `__repr__` and `__str__` to return `Credential(username='...', password=***)` so it cannot leak into a traceback or log line. **Test this explicitly.**
 
 Tests mock `subprocess.run`. No network, no real vault.
@@ -374,20 +377,15 @@ Commit.
 
 ---
 
-## Task 8: Beeper API probe (exploration, not production code)
+## Task 8: Beeper API probe — **DONE**
 
-**Objective:** Learn the actual local API surface before writing against it.
+Findings are in `docs/beeper-api.md` and implemented in `cctrack/secrets/beeper.py`:
 
-Beeper Desktop is running and listening on `127.0.0.1:23373`. `/v0/get-token` returned 404, so the route set is different from the guess.
-
-1. Get an access token: Beeper Desktop → **Settings → Integrations → Desktop API**. Store it in the user's Bitwarden or a `BEEPER_ACCESS_TOKEN` env var (never committed).
-2. Install the SDK: `uv pip install beeper-desktop-api` (Python SDK per docs) — or hit REST directly.
-3. Probe and record real responses:
-   ```bash
-   curl -s -H "Authorization: Bearer $BEEPER_ACCESS_TOKEN" \
-     'http://127.0.0.1:23373/v0/search-messages?query=CIBC&limit=5' | jq
-   ```
-4. Write findings to `docs/beeper-api.md`: exact route, auth header, response shape, the timestamp field name and its format, and which `accountID` carries SMS.
+- API is **v1**, not v0. `/v0/*` returns 404.
+- Auth is real **OAuth 2.0** (authorization code + PKCE + dynamic client registration) at `/oauth/register`, `/oauth/authorize`, `/oauth/token` — not a token pasted from Settings. Scope `read` suffices. Beeper Desktop shows an in-app approval prompt.
+- Search is `GET /v1/messages/search` with `query`, `limit`, `sender`, `accountIDs`, and **`dateAfter`** (ISO 8601, filtered server-side — this is what makes stale-OTP rejection reliable).
+- Message fields are camelCase: `id`, `chatID`, `accountID`, `senderID`, `senderName`, `timestamp` (ISO 8601), `text` (**may be `null`** on attachment-only messages).
+- Token is persisted `0600` under `platformdirs.user_config_dir("cctrack")`, outside the repo. `BEEPER_ACCESS_TOKEN` overrides.
 
 **Deliverable is the doc, not code.** Task 9 depends on real field names — do not invent them.
 
