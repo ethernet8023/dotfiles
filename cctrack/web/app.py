@@ -17,8 +17,10 @@ from fasthtml.common import (
     Div,
     Form,
     Input,
+    Nav,
     Option,
     P,
+    Pre,
     Script,
     Select,
     Span,
@@ -100,13 +102,14 @@ def money_cell(cents: int):
     return Td(money(cents), cls=f"num {'out' if cents < 0 else 'in'}")
 
 
+NAV = (("/", "dashboard"), ("/transactions", "transactions"), ("/review", "review"))
+
+
 def nav(active: str):
-    items = [("/", "dashboard"), ("/transactions", "transactions"), ("/review", "review")]
-    return Div(*[
-        A(label, href=href, cls="on" if label == active else "")
-        for href, label in items
-    ], cls="", style="display:flex;gap:1.25rem;margin:0 0 1.5rem;"
-       "padding-bottom:1rem;border-bottom:1px solid var(--line);")
+    return Nav(*[
+        A(label, href=href, cls="on" if label == active else None)
+        for href, label in NAV
+    ])
 
 
 def page(title: str, active: str, *content):
@@ -208,23 +211,26 @@ def build_app(db=None):
     def actions_panel():
         return Div(
             Div(
-                _button("sync", "/api/sync", "download new transactions and import"),
-                _button("import", "/api/import", "import CSVs already downloaded"),
+                action("sync", "/api/sync", "download new transactions and import"),
+                action("import", "/api/import", "import CSVs already downloaded"),
                 cls="row",
             ),
             Div(id="job", hx_get="/job", hx_trigger="load, every 2s",
                 style="margin-top:1rem"),
         )
 
-    def _button(label: str, endpoint: str, hint: str):
+    def action(label: str, endpoint: str, hint: str):
+        """A button that starts a background job and swaps in its live log."""
         return Div(
             Form(
                 Input(type="hidden", name="token", value=token),
-                Input(type="submit", value=label, cls=""),
+                Input(type="submit", value=label),
                 hx_post=endpoint, hx_target="#job", hx_swap="innerHTML",
             ),
             P(hint, cls="dim", style="margin:.25rem 0 0;font-size:.85rem"),
         )
+
+    STATUS_COLOUR = {"running": "var(--accent)", "done": "var(--in)", "failed": "var(--out)"}
 
     @rt("/job")
     def job_panel():
@@ -232,18 +238,16 @@ def build_app(db=None):
         if job is None:
             return P("no jobs run yet", cls="dim")
 
-        colour = {"running": "var(--accent)", "done": "var(--in)", "failed": "var(--out)"}
-        head = Div(
-            Span(job.name, style="font-weight:600"),
-            Span(job.status, style=f"color:{colour[job.status]}"),
-            Span(job.result or job.error or "", cls="dim"),
-            cls="row",
+        return Div(
+            Div(
+                Span(job.name, style="font-weight:600"),
+                Span(job.status, style=f"color:{STATUS_COLOUR[job.status]}"),
+                Span(job.result or job.error or "", cls="dim"),
+                cls="row",
+            ),
+            Pre("\n".join(job.lines[-14:])) if job.lines else "",
+            cls="card",
         )
-        body = Div(*[P(line, style="margin:0;font-family:ui-monospace,monospace;"
-                                   "font-size:.8rem") for line in job.lines[-14:]],
-                   cls="") if job.lines else None
-        return Div(head, Div(body, cls="") if body else "",
-                   style="border:1px solid var(--line);border-radius:8px;padding:.75rem")
 
     @rt("/transactions")
     def transactions(account: str = "", q: str = "", page_no: int = 1):
@@ -316,31 +320,25 @@ def build_app(db=None):
 
     # ----------------------------------------------------------------- api
 
-    @rt("/api/sync", methods=["POST"])
-    async def api_sync(request):
+    def start_job(request, name: str, work):
+        """Shared body of the job endpoints: authorize, start, show the log."""
         try:
             require_token(request)
         except PermissionError as exc:
             return JSONResponse({"error": str(exc)}, status_code=403)
-
         try:
-            runner.start("sync", _sync_job(database))
+            runner.start(name, work)
         except RuntimeError as exc:
             return JSONResponse({"error": str(exc)}, status_code=409)
         return job_panel()
+
+    @rt("/api/sync", methods=["POST"])
+    async def api_sync(request):
+        return start_job(request, "sync", _sync_job(database))
 
     @rt("/api/import", methods=["POST"])
     async def api_import(request):
-        try:
-            require_token(request)
-        except PermissionError as exc:
-            return JSONResponse({"error": str(exc)}, status_code=403)
-
-        try:
-            runner.start("import", _import_job(database))
-        except RuntimeError as exc:
-            return JSONResponse({"error": str(exc)}, status_code=409)
-        return job_panel()
+        return start_job(request, "import", _import_job(database))
 
     @rt("/api/status")
     def api_status(request):
