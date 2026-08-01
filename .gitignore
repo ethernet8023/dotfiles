@@ -6,8 +6,10 @@ __pycache__/
 .ruff_cache/
 
 # never commit anything with real money or creds in it
-data/
-downloads/
+# anchored to the repo root: cctrack/data/ holds packaged seed files that must
+# ship, and an unanchored `data/` silently swallowed them
+/data/
+/downloads/
 *.db
 *.db-wal
 *.db-shm

@@ -128,6 +128,51 @@ def test_review_page_shows_the_queue(client):
     assert "uncategorized" in r.text.lower()
 
 
+def test_review_page_offers_categories(client):
+    """Categories are seeded on first visit so the queue is usable immediately."""
+    r = client.get("/review")
+    assert "restaurants" in r.text
+    assert 'hx-post="/api/tag"' in r.text
+
+
+def test_tagging_through_the_ui_clears_matching_charges(client, db):
+    """The headline feature, exercised over HTTP rather than in the library."""
+    from cctrack.db import connect
+    from cctrack.ingest.importer import ensure_account, import_csv
+
+    con = connect(db)
+    acct = ensure_account(con, "CIBC VISA", "credit")
+    import_csv(con, acct, "".join(
+        f"2026-07-{d:02d},HAMER'S COFFEE TORONTO,4.50,\n" for d in range(1, 6)
+    ))
+
+    page = client.get("/review").text
+    import re
+    cats = {n: i for i, n in re.findall(r'<option value="(\d+)">([a-z]+)</option>', page)}
+    row = next(r for r in page.split("<tr>") if "HAMER" in r)
+    tx_id = re.search(r'name="tx_id" value="(\d+)"', row).group(1)
+
+    before = client.get("/api/status?token=test-token").json()["uncategorized"]
+    r = client.post("/api/tag", data={
+        "tx_id": tx_id, "category_id": cats["restaurants"], "token": "test-token",
+    })
+    assert r.status_code == 200
+    after = client.get("/api/status?token=test-token").json()["uncategorized"]
+
+    assert before - after == 5, "one tag should clear all five coffee charges"
+    assert r.text.count('id="queue"') == 1, "a duplicate id breaks the htmx swap"
+
+
+def test_tagging_requires_a_token(client):
+    r = client.post("/api/tag", data={"tx_id": "1", "category_id": "1"})
+    assert r.status_code == 403
+
+
+def test_tagging_rejects_a_malformed_request(client):
+    r = client.post("/api/tag", data={"token": "test-token"})
+    assert r.status_code == 400
+
+
 # --- auth -----------------------------------------------------------------
 
 
@@ -149,6 +194,16 @@ def test_api_accepts_the_token_as_a_header(client):
 def test_api_accepts_the_token_as_a_query_param(client):
     """Cron and curl are easier with a query param than a header."""
     assert client.get("/api/status?token=test-token").status_code == 200
+
+
+def test_api_accepts_the_token_as_a_form_field(client):
+    """The UI's htmx posts carry the token in the body, not a header.
+
+    Regression: only header and query were checked, so every in-page button
+    would have 403'd. A manual curl with -H hid this during live testing.
+    """
+    r = client.post("/api/import", data={"token": "test-token"})
+    assert r.status_code in (200, 409), r.text
 
 
 def test_api_rejects_a_non_local_host_header(client):

@@ -37,6 +37,8 @@ from fasthtml.common import (
 )
 from starlette.responses import JSONResponse, PlainTextResponse
 
+from cctrack.categories import all_categories, seed
+from cctrack.categorize import tag_and_learn
 from cctrack.config import db_path, downloads_dir
 from cctrack.db import connect
 from cctrack.sync import import_files, sync_window
@@ -134,9 +136,25 @@ def build_app(db=None):
         if host not in ALLOWED_HOSTS:
             raise PermissionError(f"non-local Host header {host!r}")
 
-    def require_token(request) -> None:
+    async def require_token(request) -> None:
+        """Authorize an API call.
+
+        The token may arrive three ways, because three kinds of caller use
+        this: an Authorization header (curl, cron), a query parameter (easy
+        to paste), or a form field (the UI's htmx posts, which cannot set
+        headers without extra wiring).
+        """
         require_local(request)
-        supplied = request.headers.get("authorization") or request.query_params.get("token")
+        supplied = (
+            request.headers.get("authorization")
+            or request.query_params.get("token")
+        )
+        if not supplied and request.method == "POST":
+            try:
+                form = await request.form()
+                supplied = form.get("token")
+            except Exception:  # noqa: BLE001 - a bodyless post is just unauthorized
+                supplied = None
         if not token_matches(supplied, token):
             raise PermissionError("bad or missing API token")
 
@@ -297,33 +315,81 @@ def build_app(db=None):
     @rt("/review")
     def review():
         c = con()
-        pending = uncategorized_count(c)
-        if not pending:
-            return page("review", "review",
-                        P("nothing to review — every transaction is categorized.",
-                          cls="dim"))
+        cats = all_categories(c)
+        if not cats:
+            seed(c)
+            cats = all_categories(c)
+        return page("review", "review", review_queue(c, cats))
 
-        rows = recent_transactions(c, limit=50, uncategorized_only=True)
-        table = Table(
-            Thead(Tr(Th("date"), Th("description"), Th("account"), Th("amount", cls="num"))),
-            Tbody(*[
-                Tr(Td(r["posted_on"], cls="dim"), Td(r["description"]),
-                   Td(r["account"], cls="dim"), money_cell(r["amount_cents"]))
-                for r in rows
-            ]),
+    def review_queue(c, cats=None, note: str | None = None):
+        """The queue itself, swapped in place after each tag."""
+        cats = cats or all_categories(c)
+        pending = uncategorized_count(c)
+        banner = P(note, cls="dim") if note else ""
+
+        if not pending:
+            return Div(banner,
+                       P("nothing to review — every transaction is categorized.",
+                         cls="dim"), id="queue")
+
+        rows = recent_transactions(c, limit=25, uncategorized_only=True)
+        return Div(
+            banner,
+            P(f"{pending:,} uncategorized. Tagging one also learns a rule, "
+              f"so charges from the same merchant clear together.", cls="dim"),
+            Table(
+                Thead(Tr(Th("date"), Th("description"), Th("amount", cls="num"),
+                         Th("category"))),
+                Tbody(*[review_row(r, cats) for r in rows]),
+            ),
+            id="queue",
         )
-        return page("review", "review",
-                    P(f"{pending:,} uncategorized. Categories and one-tap tagging "
-                      f"arrive with the rules engine; this is the queue they will "
-                      f"work through.", cls="dim"),
-                    table)
+
+    def review_row(r, cats):
+        return Tr(
+            Td(r["posted_on"], cls="dim"),
+            Td(r["description"]),
+            money_cell(r["amount_cents"]),
+            Td(Form(
+                Select(Option("pick…", value="", selected=True),
+                       *[Option(cat.name, value=str(cat.id)) for cat in cats],
+                       name="category_id"),
+                Input(type="hidden", name="tx_id", value=str(r["id"])),
+                Input(type="hidden", name="token", value=token),
+                hx_post="/api/tag", hx_target="#queue", hx_swap="outerHTML",
+                hx_trigger="change from:select",
+            )),
+        )
+
+    @rt("/api/tag", methods=["POST"])
+    async def api_tag(request):
+        try:
+            await require_token(request)
+        except PermissionError as exc:
+            return JSONResponse({"error": str(exc)}, status_code=403)
+
+        form = await request.form()
+        try:
+            tx_id = int(form["tx_id"])
+            category_id = int(form["category_id"])
+        except (KeyError, ValueError):
+            return JSONResponse({"error": "tx_id and category_id required"},
+                                status_code=400)
+
+        c = con()
+        cleared, proposal = tag_and_learn(c, tx_id, category_id)
+        note = (f"tagged 1, and {cleared - 1} more cleared by the learned rule "
+                f"{proposal.pattern}" if proposal and cleared > 1 else "tagged 1")
+        # One #queue in the response: the note lives inside it, not wrapped
+        # around it, or the swap leaves two elements with the same id.
+        return review_queue(c, note=note)
 
     # ----------------------------------------------------------------- api
 
-    def start_job(request, name: str, work):
+    async def start_job(request, name: str, work):
         """Shared body of the job endpoints: authorize, start, show the log."""
         try:
-            require_token(request)
+            await require_token(request)
         except PermissionError as exc:
             return JSONResponse({"error": str(exc)}, status_code=403)
         try:
@@ -334,16 +400,16 @@ def build_app(db=None):
 
     @rt("/api/sync", methods=["POST"])
     async def api_sync(request):
-        return start_job(request, "sync", _sync_job(database))
+        return await start_job(request, "sync", _sync_job(database))
 
     @rt("/api/import", methods=["POST"])
     async def api_import(request):
-        return start_job(request, "import", _import_job(database))
+        return await start_job(request, "import", _import_job(database))
 
     @rt("/api/status")
-    def api_status(request):
+    async def api_status(request):
         try:
-            require_token(request)
+            await require_token(request)
         except PermissionError as exc:
             return JSONResponse({"error": str(exc)}, status_code=403)
 

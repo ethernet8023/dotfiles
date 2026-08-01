@@ -149,6 +149,16 @@ async def _run_sync(
 
 
 @app.command()
+def categorize(db: Path = typer.Option(None, "--db", help="database path")) -> None:
+    """Apply rules to uncategorized transactions."""
+    from cctrack.categorize import categorize as run
+
+    con = connect(db or db_path())
+    result = run(con)
+    typer.echo(f"categorized {result.categorized}, {result.remaining} unknown remaining")
+
+
+@app.command()
 def serve(
     port: int = typer.Option(5001, "--port"),
     host: str = typer.Option("127.0.0.1", "--host"),
