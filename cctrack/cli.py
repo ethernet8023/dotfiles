@@ -162,11 +162,15 @@ def categorize(db: Path = typer.Option(None, "--db", help="database path")) -> N
 def serve(
     port: int = typer.Option(5001, "--port"),
     host: str = typer.Option("127.0.0.1", "--host"),
+    auto_sync: bool = typer.Option(
+        False, "--auto-sync", help="sync on a timer while the server runs"
+    ),
+    every: int = typer.Option(60, "--every", help="minutes between auto-syncs"),
 ) -> None:
     """Start the web UI -- the primary interface for review and reporting."""
     from cctrack.web.app import main
 
-    main(host=host, port=port)
+    main(host=host, port=port, auto_sync=auto_sync, interval_minutes=every)
 
 
 @app.command()

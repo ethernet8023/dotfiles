@@ -25,5 +25,8 @@ browser/
 
 # fasthtml writes its session-signing key here on first run
 .sesskey
+
+# git worktrees checked out inside the repo are separate checkouts, not content
+.worktrees/
 result
 result-*

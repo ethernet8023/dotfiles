@@ -9,7 +9,7 @@ Bound to loopback only. See auth.py for why the API needs a token even so.
 from __future__ import annotations
 
 import asyncio
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from fasthtml.common import (
     H2,
@@ -53,6 +53,7 @@ from cctrack.web.queries import (
     recent_transactions,
     uncategorized_count,
 )
+from cctrack.web.scheduler import Scheduler
 
 ALLOWED_HOSTS = {"localhost", "127.0.0.1", "[::1]", "::1"}
 
@@ -118,13 +119,29 @@ def page(title: str, active: str, *content):
     return Titled(title, Style(CSS), nav(active), *content)
 
 
-def build_app(db=None):
+def build_app(db=None, *, auto_sync: bool = False, interval_minutes: int = 60):
     app, rt = fast_app(pico=False, hdrs=(Script(src="https://unpkg.com/htmx.org@2.0.4"),))
     token = load_or_create_token()
     database = db or db_path()
 
     def con():
         return connect(database)
+
+    def run_sync_now() -> str:
+        """Body of a scheduled sync: same work the button does, run inline."""
+        job = runner.start("sync (scheduled)", _sync_job(database))
+        runner.join(timeout=60 * 30)
+        if job.status == "failed":
+            raise RuntimeError(job.error or "sync failed")
+        return job.result or "done"
+
+    scheduler = Scheduler(
+        run_sync_now,
+        interval=timedelta(minutes=interval_minutes),
+        is_busy=runner.is_running,
+    )
+    if auto_sync:
+        scheduler.start()
 
     def require_local(request) -> None:
         """Refuse requests whose Host is not loopback.
@@ -235,7 +252,64 @@ def build_app(db=None):
             ),
             Div(id="job", hx_get="/job", hx_trigger="load, every 2s",
                 style="margin-top:1rem"),
+            Div(id="schedule", hx_get="/schedule", hx_trigger="load, every 10s",
+                style="margin-top:1rem"),
         )
+
+    @rt("/schedule")
+    def schedule_panel():
+        s = scheduler.state
+        mins = int(s.interval.total_seconds() // 60)
+
+        if s.paused_reason:
+            status = Span(s.paused_reason, style="color:var(--out)")
+        elif s.enabled and s.next_run:
+            status = Span(f"on — next run {s.next_run:%H:%M}", style="color:var(--in)")
+        elif s.enabled:
+            status = Span("on", style="color:var(--in)")
+        else:
+            status = Span("off", cls="dim")
+
+        toggle = Form(
+            Input(type="hidden", name="token", value=token),
+            Input(type="hidden", name="minutes", value=str(mins)),
+            Input(type="submit", value="turn off" if s.enabled else "turn on"),
+            hx_post="/api/schedule/" + ("stop" if s.enabled else "start"),
+            hx_target="#schedule", hx_swap="outerHTML",
+        )
+
+        return Div(
+            Div(Span("auto-sync", style="font-weight:600"), status,
+                Span(f"every {mins} min", cls="dim"), Span(cls="spacer"), toggle,
+                cls="row"),
+            Pre("\n".join(s.history[-6:])) if s.history else "",
+            id="schedule", cls="card",
+        )
+
+    @rt("/api/schedule/start", methods=["POST"])
+    async def api_schedule_start(request):
+        try:
+            await require_token(request)
+        except PermissionError as exc:
+            return JSONResponse({"error": str(exc)}, status_code=403)
+
+        form = await request.form()
+        try:
+            minutes = max(5, int(form.get("minutes", 60)))
+        except ValueError:
+            minutes = 60
+        scheduler.state.interval = timedelta(minutes=minutes)
+        scheduler.start()
+        return schedule_panel()
+
+    @rt("/api/schedule/stop", methods=["POST"])
+    async def api_schedule_stop(request):
+        try:
+            await require_token(request)
+        except PermissionError as exc:
+            return JSONResponse({"error": str(exc)}, status_code=403)
+        scheduler.stop()
+        return schedule_panel()
 
     def action(label: str, endpoint: str, hint: str):
         """A button that starts a background job and swaps in its live log."""
@@ -423,6 +497,7 @@ def build_app(db=None):
             ],
             "uncategorized": uncategorized_count(c),
             "job": job.as_dict() if job else None,
+            "schedule": scheduler.state.as_dict(),
         })
 
     @rt("/api/token")
@@ -496,14 +571,28 @@ def _import_job(database):
 app = build_app()
 
 
-def main(host: str = "127.0.0.1", port: int = 5001) -> None:
+def main(
+    host: str = "127.0.0.1",
+    port: int = 5001,
+    *,
+    auto_sync: bool = False,
+    interval_minutes: int = 60,
+) -> None:
     if host not in {"127.0.0.1", "localhost", "::1"}:
         raise SystemExit(
             f"refusing to bind {host}: this serves real bank transactions "
             f"with no login. Use 127.0.0.1."
         )
+
+    global app
+    app = build_app(auto_sync=auto_sync, interval_minutes=interval_minutes)
+
     print(f"cctrack -> http://{host}:{port}")
     print(f"api token: {load_or_create_token()}")
+    if auto_sync:
+        print(f"auto-sync every {interval_minutes} min")
+        print("  a sync opens a browser window; run under `cage` to hide it "
+              "(see scripts/serve.sh)")
     serve(appname="cctrack.web.app", host=host, port=port, reload=False)
 
 
