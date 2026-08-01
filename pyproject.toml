@@ -13,6 +13,9 @@ dependencies = [
     # JS injection. See STEALTH_NOTE in cctrack/ingest/cibc_web.py for the
     # measured matrix. Needs a one-time `python -m camoufox fetch`.
     "camoufox[geoip]>=0.4",
+    # The web UI is the primary interface: review and reporting live there,
+    # and cron drives sync through its API rather than through the CLI.
+    "python-fasthtml>=0.12",
 ]
 # NOTE: playwright is deliberately NOT listed here. nixpkgs patches its playwright
 # python package to point at the exact chromium revision in playwright-driver.browsers
@@ -48,4 +51,7 @@ line-length = 100
 # deliberately catch broadly and report, because a probe that crashes tells us
 # less than one that prints what went wrong and carries on.
 "scripts/*" = ["BLE001"]
+# Typer declares options as call-valued defaults; that is its documented API,
+# not an accident.
+"cctrack/cli.py" = ["B008"]
 

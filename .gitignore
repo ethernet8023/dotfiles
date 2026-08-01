@@ -20,5 +20,8 @@ fixtures/cibc_*.csv
 
 # playwright persistent browser profile (holds CIBC session cookies)
 browser/
+
+# fasthtml writes its session-signing key here on first run
+.sesskey
 result
 result-*
