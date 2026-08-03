@@ -166,6 +166,11 @@
         ci = "!git commit -m 'ci: empty commit' --allow-empty && git push && git reset --soft HEAD~ && git push -f";
         gone = "!git for-each-ref --format='%(refname:short) %(upstream:track)' refs/heads/ | awk '\$2 == \"[gone]\" { print \$1 }'";
         bclean = "!git gone | xargs -r git branch -D";
+        wtgone = "!git worktree list --porcelain | awk '/^worktree /{p=$2} /^branch /{b=$2; sub(\"refs/heads/\",\"\",b); print p, b}' | while read path branch; do git gone | grep -qx \"$branch\" && echo \"$path\"; done";
+        wtclean = "!git worktree prune -v && git wtgone | xargs -r -I{} git worktree remove {}";
+        wtcleanf = "!git wtgone | xargs -r -I{} git worktree remove {} --force && git worktree prune -v";
+        allclean = "!git bclean; git wtclean; git bclean; git wtclean";
+        allcleanf = "!git bclean; git wtcleanf; git bclean; git wtcleanf";
       };
     };
     signing.format = null;
