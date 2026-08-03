@@ -226,6 +226,15 @@ in
     </service-group>
   '';
 
+  # samba password from age secret. same one sol uses (sol-smbpasswd.age),
+  # now re-encrypted to include dollnet's host key.
+  age.secrets.sol-smbpasswd.file = ../../secrets/sol-smbpasswd.age;
+
+  system.activationScripts.sambaUserPassword = lib.stringAfter [ "users" "groups" ] ''
+    SMB_PASSWORD=$(cat ${config.age.secrets.sol-smbpasswd.path})
+    echo -e "$SMB_PASSWORD\n$SMB_PASSWORD" | ${pkgs.samba}/bin/smbpasswd -s -a ethernet
+  '';
+
   # ── SLSKD (Soulseek) ─────────────────────────────────────────────────────
   # needs /home/ethernet/slskd.env with your soulseek credentials.
   services.slskd = {

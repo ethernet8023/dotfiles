@@ -15,6 +15,7 @@ in
       keys.luna
       keys.sol
       keys.hermes
+      keys.dollnet
     ];
   };
   "netrc.age" = {
