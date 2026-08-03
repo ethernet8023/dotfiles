@@ -12,7 +12,7 @@ buildHomeAssistantComponent {
     owner = "eimirae";
     repo = "govee_ble_lights";
     rev = "87a80b461c6d4f483d6c6c6d5e972e59927ec7d5";
-    hash = "sha256-OnBt4afJuUFnohue8nnBUlUsZi2XanvdS1iocUok7V0=";
+    hash = "sha256-yAuN8aGnUZpuJGfHRI5C7CyFtgpMT/ym9s0xPqIIJIs=";
   };
 
   dontBuild = true;
