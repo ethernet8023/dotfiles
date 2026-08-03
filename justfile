@@ -2,7 +2,20 @@ _default:
   @just --list --unsorted
 
 genflake:
-  nix run .#genflake flake.nix
+  #!/usr/bin/env bash
+  set -euo pipefail
+  # `nix run .#genflake` is the documented way, but flakegen's app output
+  # resolves to a fresh, unrealised store path on every eval on darwin --
+  # you get "unable to execute .../genflake: No such file or directory" with a
+  # different hash each run. the flakegen input itself is stable, so call the
+  # script out of it directly and only fall back to the app if that fails.
+  fg=$(nix eval --accept-flake-config --raw --impure \
+        --expr "(builtins.getFlake (toString ./.)).inputs.flakegen.outPath" 2>/dev/null || true)
+  if [ -n "$fg" ] && [ -x "$fg/genflake" ]; then
+    "$fg/genflake" flake.nix
+  else
+    nix run .#genflake flake.nix
+  fi
 
 # nh wants `os` on nixos and `darwin` on macos
 _nh := if os() == "macos" { "darwin" } else { "os" }
