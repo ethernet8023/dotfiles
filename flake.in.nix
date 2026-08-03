@@ -106,6 +106,27 @@
       formatter.x86_64-linux = nixpkgs.legacyPackages.x86_64-linux.nixfmt;
       formatter.aarch64-darwin = nixpkgs.legacyPackages.aarch64-darwin.nixfmt;
 
+      # importable by other flakes (e.g. dollnet, which isn't mine and only
+      # wants my home config for the `ethernet` user). these are plain module
+      # paths -- no nixpkgs of mine leaks through them, so a consumer evaluates
+      # them against their own.
+      #
+      # `dollnet` is the whole config for ethernet@dollnet and bundles its own
+      # imports, so her flake needs exactly one entry. it wants
+      # `hermes-agent-package` in extraSpecialArgs -- see the comment at the top
+      # of home-manager/hosts/dollnet.nix for why the package is injected rather
+      # than pinned here.
+      #
+      # the other two are the building blocks, exposed for reuse:
+      # hermes-agent needs `services.hermes-agent.package` set by the consumer;
+      # server expects home.username / home.homeDirectory from the consumer too,
+      # since identity.nix only applies to my own hosts.
+      homeManagerModules = {
+        dollnet = ./home-manager/hosts/dollnet.nix;
+        hermes-agent = ./home-manager/hermes-agent.nix;
+        server = ./home-manager/home-server.nix;
+      };
+
       darwinConfigurations = {
         # macbook air m1
         # `just switch` on iris itself; can't cross-build darwin from linux.
