@@ -25,7 +25,10 @@ in
 rec {
   # -- home-manager structural shorthands --
   call = args: { _args = args; };
-  var = name: value: { _var = value; inherit name; };
+  var = name: value: {
+    _var = value;
+    inherit name;
+  };
 
   # -- key strings --
   key = mods: k: if mods == "" then k else "${mods} + ${k}";
@@ -33,16 +36,36 @@ rec {
 
   # -- flags (combine with flags [ locked repeating ... ]) --
   flags = foldl' mergeAttrs { };
-  locked = { locked = true; };
-  repeating = { repeating = true; };
-  release = { release = true; };
-  longPress = { long_press = true; };
-  mouse = { mouse = true; };
-  click = { click = true; };
-  dragFlag = { drag = true; };
-  submapUniversal = { submap_universal = true; };
-  ignoreMods = { ignore_mods = true; };
-  nonConsuming = { non_consuming = true; };
+  locked = {
+    locked = true;
+  };
+  repeating = {
+    repeating = true;
+  };
+  release = {
+    release = true;
+  };
+  longPress = {
+    long_press = true;
+  };
+  mouse = {
+    mouse = true;
+  };
+  click = {
+    click = true;
+  };
+  dragFlag = {
+    drag = true;
+  };
+  submapUniversal = {
+    submap_universal = true;
+  };
+  ignoreMods = {
+    ignore_mods = true;
+  };
+  nonConsuming = {
+    non_consuming = true;
+  };
   device = { inclusive, list }: { device = { inherit inclusive list; }; };
   description = text: { description = text; };
 
@@ -61,11 +84,13 @@ rec {
     ];
   };
 
-  multi = actions: mkLuaInline ''
-    function()
-      ${concatMapStringsSep "\n  " (a: "hl.dispatch(${lua a})") actions}
-    end
-  '';
+  multi =
+    actions:
+    mkLuaInline ''
+      function()
+        ${concatMapStringsSep "\n  " (a: "hl.dispatch(${lua a})") actions}
+      end
+    '';
 
   # -- dispatchers (produce LuaInline expressions for hl.bind) --
   exec = cmd: mkLuaInline "hl.dsp.exec_cmd(${lua cmd})";
@@ -75,7 +100,8 @@ rec {
   focus = {
     dir = d: mkLuaInline "hl.dsp.focus({ direction = ${lua d} })";
     workspace = ws: mkLuaInline "hl.dsp.focus({ workspace = ${lua ws} })";
-    workspaceOnCurrent = ws: mkLuaInline "hl.dsp.focus({ workspace = ${lua ws}, on_current_monitor = true })";
+    workspaceOnCurrent =
+      ws: mkLuaInline "hl.dsp.focus({ workspace = ${lua ws}, on_current_monitor = true })";
     window = w: mkLuaInline "hl.dsp.focus({ window = ${lua w} })";
     monitor = m: mkLuaInline "hl.dsp.focus({ monitor = ${lua m} })";
     last = mkLuaInline "hl.dsp.focus({ last = true })";
@@ -112,15 +138,25 @@ rec {
     next = mkLuaInline "hl.dsp.focus({ workspace = \"e+1\" })";
     prev = mkLuaInline "hl.dsp.focus({ workspace = \"e-1\" })";
     previous = mkLuaInline "hl.dsp.focus({ workspace = \"previous\" })";
-    rename = { workspace, name }: mkLuaInline "hl.dsp.workspace.rename({ workspace = ${lua workspace}, name = ${lua name} })";
-    moveToMonitor = { workspace, monitor }: mkLuaInline "hl.dsp.workspace.move({ workspace = ${lua workspace}, monitor = ${lua monitor} })";
+    rename =
+      { workspace, name }:
+      mkLuaInline "hl.dsp.workspace.rename({ workspace = ${lua workspace}, name = ${lua name} })";
+    moveToMonitor =
+      { workspace, monitor }:
+      mkLuaInline "hl.dsp.workspace.move({ workspace = ${lua workspace}, monitor = ${lua monitor} })";
     toggleSpecial = name: mkLuaInline "hl.dsp.workspace.toggle_special(${lua name})";
   };
 
   layout = msg: mkLuaInline "hl.dsp.layout(${lua msg})";
   submap = name: mkLuaInline "hl.dsp.submap(${lua name})";
 
-  pass = { window ? null, mods ? null, key ? null, ... }@args:
+  pass =
+    {
+      window ? null,
+      mods ? null,
+      key ? null,
+      ...
+    }@args:
     if mods != null then
       mkLuaInline "hl.dsp.send_shortcut(${lua args})"
     else
@@ -129,21 +165,42 @@ rec {
   global = id: mkLuaInline "hl.dsp.global(${lua id})";
 
   # -- binds (produce _args tables that become hl.bind(...) calls) --
-  bind = keycomb: dispatcher: { _args = [ keycomb dispatcher ]; };
-  bindf = keycomb: dispatcher: fl: { _args = [ keycomb dispatcher fl ]; };
+  bind = keycomb: dispatcher: {
+    _args = [
+      keycomb
+      dispatcher
+    ];
+  };
+  bindf = keycomb: dispatcher: fl: {
+    _args = [
+      keycomb
+      dispatcher
+      fl
+    ];
+  };
 
   # -- monitor / window-rule helpers --
   monitor = args: args;
   windowRule = attrs: attrs;
-  floatRule = match: { inherit match; float = true; };
-  tileRule = match: { inherit match; tile = true; };
-  workspaceRule = match: ws: { inherit match; workspace = ws; };
+  floatRule = match: {
+    inherit match;
+    float = true;
+  };
+  tileRule = match: {
+    inherit match;
+    tile = true;
+  };
+  workspaceRule = match: ws: {
+    inherit match;
+    workspace = ws;
+  };
 
   # bulk workspace number binds (mirrors the old hyprlang workspace loop)
   workspaceBinds =
-    { mod
-    , shiftMod ? "${mod} + SHIFT"
-    , count ? 10
+    {
+      mod,
+      shiftMod ? "${mod} + SHIFT",
+      count ? 10,
     }:
     builtins.concatLists (
       builtins.genList (
