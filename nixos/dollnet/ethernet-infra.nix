@@ -106,9 +106,7 @@ in
       "govee_ble"
       "govee_light_local"
     ];
-    customComponents = [
-      (pkgs.callPackage ./govee-led.nix { })
-    ];
+    customComponents = [ ];
     config = {
       default_config = { };
     };
