@@ -19,6 +19,7 @@
       nur = followsNixpkgs "github:nix-community/NUR";
       agenix = followsNixpkgs "github:ryantm/agenix";
       home-manager = followsNixpkgs "github:nix-community/home-manager";
+      nix-darwin = followsNixpkgs "github:nix-darwin/nix-darwin";
       hypr-contrib = followsNixpkgs "github:hyprwm/contrib";
       vscode-ext = followsNixpkgs "github:nix-community/nix-vscode-extensions";
       # beepy = followsNixpkgs "github:arilotter/nixos-beepy";
@@ -89,9 +90,41 @@
           };
         }
       ];
+      darwin-modules = [
+        agenix.darwinModules.default
+        home-manager.darwinModules.home-manager
+        {
+          home-manager.extraSpecialArgs = { inherit inputs; };
+          home-manager.useGlobalPkgs = true;
+          home-manager.useUserPackages = true;
+          home-manager.backupFileExtension = "hm-backup";
+        }
+        ./darwin/all-darwin-configuration.nix
+      ];
     in
     rec {
       formatter.x86_64-linux = nixpkgs.legacyPackages.x86_64-linux.nixfmt;
+      formatter.aarch64-darwin = nixpkgs.legacyPackages.aarch64-darwin.nixfmt;
+
+      darwinConfigurations = {
+        # macbook air m1
+        # `just switch` on iris itself; can't cross-build darwin from linux.
+        "iris" = inputs.nix-darwin.lib.darwinSystem {
+          specialArgs = { inherit inputs; };
+          modules = darwin-modules ++ [
+            ./darwin/iris/configuration.nix
+            {
+              home-manager.users.ethernet = {
+                imports = [
+                  ./home-manager/home.nix
+                  ./home-manager/home-darwin.nix
+                ];
+              };
+            }
+          ];
+        };
+      };
+
       nixosConfigurations = {
         # desktop ~
         "luna" = nixpkgs.lib.nixosSystem (
