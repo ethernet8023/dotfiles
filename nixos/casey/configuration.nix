@@ -3,7 +3,6 @@
   imports = [
     ./immich.nix
     ./home-assistant.nix
-    ./qbittorrent.nix
     ./samba.nix
   ];
 
@@ -30,7 +29,10 @@
   services.qbittorrent = {
     enable = true;
     openFirewall = true;
-    dataDir = "/mnt/storage/torrents";
+    # upstream passes this straight to --profile, where the old local module
+    # appended /.config itself. keep the same path so the existing profile
+    # (settings, torrent state) is still found.
+    profileDir = "/mnt/storage/torrents/.config";
   };
 
   services.openssh.enable = true;
