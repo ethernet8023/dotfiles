@@ -127,6 +127,12 @@
         server = ./home-manager/home-server.nix;
       };
 
+      # NixOS modules importable by other flakes. same principle as homeModules:
+      # plain module paths, no nixpkgs of mine leaks through.
+      nixosModules = {
+        dollnet-infra = ./nixos/dollnet/ethernet-infra.nix;
+      };
+
       darwinConfigurations = {
         # macbook air m1
         # `just switch` on iris itself; can't cross-build darwin from linux.
