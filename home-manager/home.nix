@@ -10,8 +10,9 @@
   ];
 
   home = {
-    username = "ethie";
-    homeDirectory = "/home/ari";
+    # username / homeDirectory come from the host config (see identity.nix),
+    # since they differ per machine: /home/ethie on luna, /home/ari on the
+    # older linux hosts, /Users/ethernet on darwin.
     stateVersion = "23.05"; # https://nixos.wiki/wiki/FAQ/When_do_I_update_stateVersion
   };
 

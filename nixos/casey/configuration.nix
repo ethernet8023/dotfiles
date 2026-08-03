@@ -7,6 +7,9 @@
     ./samba.nix
   ];
 
+  # not yet migrated off the old homedir; everything under it is real.
+  me.homeDirectory = "/home/ari";
+
   networking = {
     hostName = "casey";
 

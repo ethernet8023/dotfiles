@@ -1,6 +1,5 @@
 {
   config,
-  lib,
   pkgs,
   ...
 }:
@@ -10,12 +9,7 @@ in
 {
   networking.hostName = "luna";
 
-  # luna-only: home lives at /home/ethie, not the shared /home/ari.
-  # other hosts (hermes/sol/casey) still use /home/ari until migrated.
-  users.users.ethie.home = lib.mkForce "/home/ethie";
-  home-manager.users.ethie.home.homeDirectory = lib.mkForce "/home/ethie";
-  age.identityPaths = lib.mkForce [ "/home/ethie/.ssh/id_ed25519" ];
-  programs.nh.flake = lib.mkForce "/home/ethie/dotfiles";
+  # home is /home/ethie here, which is what identity.nix defaults to.
 
   services.xserver = {
     videoDrivers = [ "nvidia" ];

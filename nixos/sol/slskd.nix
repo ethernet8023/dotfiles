@@ -2,7 +2,7 @@
 {
   services.slskd = {
     enable = true;
-    environmentFile = "/home/ari/slskd.env";
+    environmentFile = "${config.me.homeDirectory}/slskd.env";
     domain = null;
     settings = {
       shares = {

@@ -6,6 +6,8 @@
   ...
 }:
 {
+  imports = [ ../identity.nix ];
+
   nixpkgs = {
     overlays = [
       inputs.nur.overlays.default
@@ -45,7 +47,7 @@
   };
 
   age = {
-    identityPaths = [ "/home/ari/.ssh/id_ed25519" ];
+    identityPaths = [ config.me.sshKey ];
     secrets = {
       ethie-passwd.file = ../secrets/ethie-passwd.age;
       sol-smbpasswd.file = ../secrets/sol-smbpasswd.age;
@@ -75,6 +77,12 @@
     useGlobalPkgs = true;
     useUserPackages = true;
     backupFileExtension = "hm-backup";
+
+    # home.nix is shared with darwin, so it can't hardcode either of these.
+    users.${config.me.username} = {
+      home.username = config.me.username;
+      home.homeDirectory = config.me.homeDirectory;
+    };
   };
 
   time.timeZone = "America/Toronto";
@@ -143,14 +151,14 @@
     enable = true;
     clean.enable = true;
     clean.extraArgs = "--keep-since 4d --keep 3";
-    flake = "/home/ari/dotfiles";
+    flake = config.me.dotfiles;
   };
 
   users = {
     mutableUsers = false;
-    users.ethie = {
+    users.${config.me.username} = {
       isNormalUser = true;
-      home = "/home/ari";
+      home = config.me.homeDirectory;
       description = "ethernet";
       uid = 1000;
       extraGroups = [

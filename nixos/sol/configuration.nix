@@ -11,6 +11,9 @@
     # TODO vaultwarden
   ];
 
+  # not yet migrated off the old homedir; everything under it is real.
+  me.homeDirectory = "/home/ari";
+
   security.acme = {
     acceptTerms = true;
     defaults.email = "arilotter@gmail.com";

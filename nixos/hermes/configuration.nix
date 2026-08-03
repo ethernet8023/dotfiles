@@ -6,6 +6,9 @@
 {
   networking.hostName = "hermes";
 
+  # not yet migrated off the old homedir; everything under it is real.
+  me.homeDirectory = "/home/ari";
+
   boot = {
     loader = {
       systemd-boot.enable = true;
