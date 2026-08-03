@@ -21,6 +21,6 @@ in
     publicKeys = keys.home-devices;
   };
   "digitalocean-token.age" = {
-    publicKeys = [ keys.dollnet ];
+    publicKeys = keys.home-devices ++ [ keys.dollnet ];
   };
 }
