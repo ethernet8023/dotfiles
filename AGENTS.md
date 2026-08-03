@@ -14,3 +14,16 @@ never run `nixos-rebuild switch` directly, nor `nh os switch`. the `justfile` wr
 ## secrets
 
 uses `age` for secrets. do not commit plaintext secrets!!!
+
+## verification
+
+don't write verification scripts for this repo. no throwaway bash harnesses that
+re-check a change from ten angles — it's a personal nix config, not production infra.
+
+to check a change is sane, just run the real thing:
+
+- `nix eval` / `nix-instantiate --parse` for a quick sanity check
+- `just build` to see if it actually builds
+- `nix flake check` if you touched flake outputs
+
+that's plenty. report what the command said and move on.
