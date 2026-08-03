@@ -1,13 +1,11 @@
 {
-  inputs,
   pkgs,
   ...
 }:
 {
-  imports = [
-    # inputs.nixvim.homeModules.default
-    inputs.vscode-server.homeModules.default
-  ];
+  # platform-specific bits live in home-{linux,darwin}.nix, wired up by the
+  # flake's tty-modules / darwin-modules -- not imported here, since choosing
+  # an import based on `pkgs` recurses under home-manager's useGlobalPkgs.
 
   home = {
     # username / homeDirectory come from the host config (see identity.nix),
@@ -18,13 +16,11 @@
 
   home.packages = with pkgs; [
     (pkgs.callPackage ./runpod { })
-    (pkgs.callPackage ./signal-desktop { })
     telegram-desktop
     # shell config
     eza # ls replacement
 
     # "desktop" env
-    upower # battery
     fastfetch # i mean, c'mon :)
 
     # TUI tools
@@ -50,7 +46,6 @@
     devenv
     gh
     jdk11 # java
-    trickle # limit bandwidth artificially
     wabt # webassembly binary tools
     google-cloud-sdk # google cloud sdk
     awscli # aws cli
@@ -63,7 +58,6 @@
     # debuggers
     lldb
     gdb
-    valgrind
 
     # graphics tools
     pngquant # png compression
@@ -168,6 +162,4 @@
   #   enable = true;
   #   enableGitIntegration = true;
   # };
-
-  services.vscode-server.enable = true;
 }

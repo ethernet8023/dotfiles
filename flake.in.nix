@@ -68,14 +68,25 @@
       ];
       tty-modules = base-modules ++ [
         {
-          home-manager.users.ethie = import ./home-manager/home.nix;
+          home-manager.users.ethie = {
+            imports = [
+              ./home-manager/home.nix
+              ./home-manager/home-linux.nix
+            ];
+          };
         }
       ];
       graphical-modules = base-modules ++ [
         catppuccin.nixosModules.catppuccin
         ./nixos/graphical-configuration.nix
         {
-          home-manager.users.ethie = import ./home-manager/home-graphical.nix;
+          # home-graphical.nix pulls in home.nix itself
+          home-manager.users.ethie = {
+            imports = [
+              ./home-manager/home-graphical.nix
+              ./home-manager/home-linux.nix
+            ];
+          };
         }
       ];
     in
