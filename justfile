@@ -4,11 +4,12 @@ _default:
 genflake:
   #!/usr/bin/env bash
   set -euo pipefail
-  # `nix run .#genflake` is the documented way, but flakegen's app output
-  # resolves to a fresh, unrealised store path on every eval on darwin --
-  # you get "unable to execute .../genflake: No such file or directory" with a
-  # different hash each run. the flakegen input itself is stable, so call the
-  # script out of it directly and only fall back to the app if that fails.
+  # `nix run .#genflake` is flakegen's documented entry point, but it breaks
+  # under determinate nix, which defaults lazy-trees=true: flakegen's app is
+  # `program = toPath ./genflake`, and with lazy-trees that freezes a *virtual*
+  # store path (nix path-info: "is not valid") into the output, so nix run
+  # exec()s a path that was never materialised -- a different hash every eval.
+  # inputs.flakegen.outPath is realised and stable, so go through that.
   fg=$(nix eval --accept-flake-config --raw --impure \
         --expr "(builtins.getFlake (toString ./.)).inputs.flakegen.outPath" 2>/dev/null || true)
   if [ -n "$fg" ] && [ -x "$fg/genflake" ]; then
