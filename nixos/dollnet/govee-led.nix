@@ -1,6 +1,7 @@
 { lib
 , buildHomeAssistantComponent
 , fetchFromGitHub
+, home-assistant
 }:
 
 buildHomeAssistantComponent {
@@ -17,7 +18,9 @@ buildHomeAssistantComponent {
 
   dontBuild = true;
 
-  propagatedBuildInputs = [];
+  propagatedBuildInputs = [
+    home-assistant.python3Packages.bleak-retry-connector
+  ];
 
   doCheck = false;
 
