@@ -42,6 +42,11 @@
     doc.enable = false;
   };
 
+  # darwin-uninstaller is its own nix-darwin evaluation with default options,
+  # so our documentation settings don't reach it and it drags the broken
+  # darwin-manual-html back in. determinate ships its own uninstaller anyway.
+  system.tools.darwin-uninstaller.enable = false;
+
   environment.systemPackages = with pkgs; [
     wget
     git
