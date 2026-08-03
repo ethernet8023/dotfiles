@@ -59,6 +59,8 @@
   services = {
     fwupd.enable = true;
     printing.enable = false;
+    # needs xdg.portal, which is graphical-only -- hence not in all-systems.
+    flatpak.enable = true;
   };
 
   networking.networkmanager.enable = true;
