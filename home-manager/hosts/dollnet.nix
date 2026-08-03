@@ -67,15 +67,11 @@
     # backend for hermes desktop:
     #   settings -> gateway -> remote gateway -> http://<tailscale ip>:9119
     #
-    # "serve" = headless (the /api/ws + /api/pty sockets desktop needs, no web
-    # SPA build). "dashboard" is a superset that also serves the browser admin
-    # panel on the same port.
-    #
     # interface, not a hardcoded host: resolves dollnet's tailscale address at
     # service start. tagged nodes hold their IP in practice, but a literal would
     # silently be wrong if the tailnet were ever rebuilt or the node re-added.
     backend = {
-      mode = "serve";
+      mode = "dashboard";
       interface = "tailscale0";
       port = 9119;
     };
