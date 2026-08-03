@@ -307,6 +307,7 @@ in
     };
     wantedBy = [ "multi-user.target" ];
     after = [ "network-online.target" ];
+    wants = [ "network-online.target" ];
   };
 
   # ── steamcmd (for game server ports from sol's firewall) ──────────────────
