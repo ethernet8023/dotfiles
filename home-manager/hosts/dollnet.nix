@@ -64,15 +64,25 @@
     # gateway (`hermes serve`/`dashboard` only *controls* one).
     gateway.enable = true;
 
-    # backend for hermes desktop:
-    #   settings -> gateway -> remote gateway -> http://<tailscale ip>:9119
+    # backend for hermes desktop + the browser dashboard:
+    #   settings -> gateway -> remote gateway
+    #     -> http://dollnet.giraffa-richter.ts.net:9119
     #
-    # interface, not a hardcoded host: resolves dollnet's tailscale address at
-    # service start. tagged nodes hold their IP in practice, but a literal would
-    # silently be wrong if the tailnet were ever rebuilt or the node re-added.
+    # "dashboard" = "serve" (the /api/ws + /api/pty sockets desktop needs) plus
+    # the browser admin panel on the same port. free on nix: the wrapper presets
+    # HERMES_WEB_DIST to a prebuilt SPA, so the startup web build is skipped.
+    #
+    # bound to the magicdns name rather than an IP, for two reasons:
+    #   1. the dashboard rejects any request whose Host header != the string it
+    #      was bound to (DNS-rebinding defence, GHSA-ppp5-vxwm-4cf7). browsing to
+    #      the name while bound to an IP gives "Invalid Host header".
+    #   2. dollnet is shared into my tailnet, so it has a *different* address in
+    #      each tailnet's view -- 100.80.221.70 in its own, 100.95.51.7 from
+    #      luna. an IP resolved on the box is simply wrong for remote peers; the
+    #      dns name resolves correctly from both sides.
     backend = {
       mode = "dashboard";
-      interface = "tailscale0";
+      hostname = "dollnet.giraffa-richter.ts.net";
       port = 9119;
     };
 

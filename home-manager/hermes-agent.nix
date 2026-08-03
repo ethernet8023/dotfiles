@@ -164,55 +164,89 @@ let
   ++ cfg.extraPackages;
 
   # ── Backend launcher ────────────────────────────────────────────────────
-  # With backend.interface set, the bind address cannot be known at build time,
-  # so ExecStart becomes a small wrapper that resolves it at start. It waits for
-  # the interface because a systemd *user* unit has no way to order itself after
+  # With backend.interface or backend.hostname set, the bind target isn't
+  # guaranteed usable at build time, so ExecStart becomes a small wrapper that
+  # waits for it at start. A systemd *user* unit has no way to order itself after
   # a system unit like tailscaled.service — After=/Requires= silently do nothing
-  # across that boundary, so polling is the only correct option.
+  # across that boundary — so polling is the only correct option.
   #
   # `exec` at the end keeps hermes as the unit's MainPID: no extra shell in the
   # cgroup, and systemd's restart/status logic tracks the real process.
   backendLauncher = pkgs.writeShellScript "hermes-backend-launch" ''
     set -euo pipefail
 
-    _iface=${lib.escapeShellArg (toString cfg.backend.interface)}
     _timeout=${toString cfg.backend.interfaceTimeout}
     _waited=0
 
-    while :; do
-      _addr="$(${pkgs.iproute2}/bin/ip -4 -oneline addr show dev "$_iface" 2>/dev/null \
-                 | ${pkgs.gawk}/bin/awk '{print $4}' \
-                 | ${pkgs.coreutils}/bin/cut -d/ -f1 \
-                 | ${pkgs.coreutils}/bin/head -n1 || true)"
+    ${
+      if cfg.backend.hostname != null then
+        ''
+          # Bind to a DNS name. uvicorn resolves it itself, but wait for it to be
+          # resolvable first: on a Tailscale MagicDNS name the resolver isn't
+          # ready until tailscaled is up, and binding an unresolvable name is a
+          # hard failure.
+          _target=${lib.escapeShellArg cfg.backend.hostname}
+          _how="hostname"
 
-      if [ -n "''${_addr:-}" ]; then
-        break
-      fi
+          while :; do
+            if ${pkgs.getent}/bin/getent hosts "$_target" >/dev/null 2>&1; then
+              break
+            fi
 
-      if [ "$_waited" -ge "$_timeout" ]; then
-        echo "hermes-backend: interface '$_iface' had no IPv4 address after ''${_timeout}s; refusing to start." >&2
-        echo "hermes-backend: binding to a fallback address could expose the backend more broadly than intended." >&2
-        exit 1
-      fi
+            if [ "$_waited" -ge "$_timeout" ]; then
+              echo "hermes-backend: '$_target' did not resolve after ''${_timeout}s; refusing to start." >&2
+              exit 1
+            fi
 
-      if [ "$_waited" = 0 ]; then
-        echo "hermes-backend: waiting for '$_iface' to acquire an IPv4 address..." >&2
-      fi
-      ${pkgs.coreutils}/bin/sleep 2
-      _waited=$(( _waited + 2 ))
-    done
+            if [ "$_waited" = 0 ]; then
+              echo "hermes-backend: waiting for '$_target' to resolve..." >&2
+            fi
+            ${pkgs.coreutils}/bin/sleep 2
+            _waited=$(( _waited + 2 ))
+          done
+        ''
+      else
+        ''
+          # Resolve the bind address from an interface.
+          _iface=${lib.escapeShellArg (toString cfg.backend.interface)}
+          _how="interface $_iface"
 
-    echo "hermes-backend: binding to $_addr:${toString cfg.backend.port} (from $_iface)" >&2
+          while :; do
+            _target="$(${pkgs.iproute2}/bin/ip -4 -oneline addr show dev "$_iface" 2>/dev/null \
+                         | ${pkgs.gawk}/bin/awk '{print $4}' \
+                         | ${pkgs.coreutils}/bin/cut -d/ -f1 \
+                         | ${pkgs.coreutils}/bin/head -n1 || true)"
+
+            if [ -n "''${_target:-}" ]; then
+              break
+            fi
+
+            if [ "$_waited" -ge "$_timeout" ]; then
+              echo "hermes-backend: interface '$_iface' had no IPv4 address after ''${_timeout}s; refusing to start." >&2
+              echo "hermes-backend: binding to a fallback address could expose the backend more broadly than intended." >&2
+              exit 1
+            fi
+
+            if [ "$_waited" = 0 ]; then
+              echo "hermes-backend: waiting for '$_iface' to acquire an IPv4 address..." >&2
+            fi
+            ${pkgs.coreutils}/bin/sleep 2
+            _waited=$(( _waited + 2 ))
+          done
+        ''
+    }
+
+    echo "hermes-backend: binding to $_target:${toString cfg.backend.port} (from $_how)" >&2
 
     exec ${cfg.package}/bin/hermes ${cfg.backend.mode} \
-      --host "$_addr" \
+      --host "$_target" \
       --port ${toString cfg.backend.port} \
       --no-open \
       ${lib.escapeShellArgs cfg.backend.extraArgs}
   '';
 
   backendExecStart =
-    if cfg.backend.interface != null then
+    if cfg.backend.hostname != null || cfg.backend.interface != null then
       "${backendLauncher}"
     else
       lib.escapeShellArgs (
@@ -478,6 +512,35 @@ in
         example = "100.80.221.70";
       };
 
+      hostname = mkOption {
+        type = types.nullOr types.str;
+        default = null;
+        description = ''
+          Bind to this DNS name instead of an IP address. Takes precedence over
+          both `host` and `interface`.
+
+          Use this when you reach the box by name. The dashboard records the
+          exact string it was bound to and rejects any request whose Host header
+          differs (`bound_host` in web_server.py's host_header_middleware —
+          DNS-rebinding defence, GHSA-ppp5-vxwm-4cf7). Binding to an IP while
+          browsing to a hostname therefore fails with:
+
+            Invalid Host header. Dashboard requests must use the hostname the
+            server was bound to.
+
+          Binding to the name your browser actually sends avoids that.
+
+          For a Tailscale MagicDNS name this is also more robust than an IP on a
+          *shared* node: a node shared into another tailnet has a different
+          address in each tailnet's view, so the IP that `interface` resolves
+          locally is not the one remote peers use. The DNS name resolves
+          correctly from either side.
+
+          The name must resolve on this host, since the server binds to it.
+        '';
+        example = "dollnet.giraffa-richter.ts.net";
+      };
+
       interface = mkOption {
         type = types.nullOr types.str;
         default = null;
@@ -492,6 +555,9 @@ in
           Because a systemd *user* unit cannot order itself after a system unit
           like tailscaled.service, the wrapper polls for the interface to come
           up (see `interfaceTimeout`) rather than assuming it is ready.
+
+          Ignored when `hostname` is set. Note that for dashboard mode a
+          hostname is usually the better choice — see `hostname`.
         '';
         example = "tailscale0";
       };
@@ -533,12 +599,13 @@ in
           {
             # Non-loopback bind engages the dashboard auth gate; without
             # credentials the desktop app has no provider to sign in against.
-            # An `interface` bind is treated as non-loopback: the address is not
-            # known until start, so it cannot be proven safe here.
+            # `interface` and `hostname` binds are treated as non-loopback: the
+            # address is not known until start, so it cannot be proven safe here.
             assertion =
               (cfg.backend.mode == "none")
               || (
                 cfg.backend.interface == null
+                && cfg.backend.hostname == null
                 && (cfg.backend.host == "127.0.0.1" || cfg.backend.host == "localhost")
               )
               || cfg.environmentFiles != [ ]
@@ -547,7 +614,9 @@ in
             message = ''
               services.hermes-agent.backend binds a non-loopback address
               (${
-                if cfg.backend.interface != null then
+                if cfg.backend.hostname != null then
+                  "hostname ${cfg.backend.hostname}"
+                else if cfg.backend.interface != null then
                   "resolved from interface ${cfg.backend.interface}"
                 else
                   cfg.backend.host
