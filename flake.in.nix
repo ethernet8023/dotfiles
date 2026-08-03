@@ -121,7 +121,7 @@
       # hermes-agent needs `services.hermes-agent.package` set by the consumer;
       # server expects home.username / home.homeDirectory from the consumer too,
       # since identity.nix only applies to my own hosts.
-      homeManagerModules = {
+      homeModules = {
         dollnet = ./home-manager/hosts/dollnet.nix;
         hermes-agent = ./home-manager/hermes-agent.nix;
         server = ./home-manager/home-server.nix;
