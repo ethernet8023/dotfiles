@@ -34,9 +34,13 @@
   programs.fish.enable = true;
 
   # nix-darwin's manual doesn't build against nixpkgs master: it passes
-  # --sidebar-depth, which nixos-render-docs has dropped. we don't read the
-  # html manual anyway (`man 5 configuration.nix` still works).
-  documentation.enable = false;
+  # --sidebar-depth, which nixos-render-docs has dropped. doc.enable is what
+  # pulls in darwin-manual-html, and it's independent of documentation.enable.
+  # man pages still work.
+  documentation = {
+    enable = false;
+    doc.enable = false;
+  };
 
   environment.systemPackages = with pkgs; [
     wget
