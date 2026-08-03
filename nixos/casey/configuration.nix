@@ -7,7 +7,7 @@
   ];
 
   # not yet migrated off the old homedir; everything under it is real.
-  me.homeDirectory = "/home/ari";
+  me = (import ../../hosts.nix).casey;
 
   networking = {
     hostName = "casey";

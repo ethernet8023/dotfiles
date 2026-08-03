@@ -90,7 +90,7 @@
       iris = {
         # dhcp moves it around; mdns is stable
         hostname = "iris.local";
-        user = "ethernet";
+        user = (import ../hosts.nix).iris.username;
       };
     };
   };
