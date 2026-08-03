@@ -33,6 +33,10 @@
 
   programs.fish.enable = true;
 
+  # macos won't accept a login shell that isn't in /etc/shells, so
+  # users.users.<n>.shell silently stays zsh without this.
+  environment.shells = [ pkgs.fish ];
+
   # nix-darwin's manual doesn't build against nixpkgs master: it passes
   # --sidebar-depth, which nixos-render-docs has dropped. doc.enable is what
   # pulls in darwin-manual-html, and it's independent of documentation.enable.

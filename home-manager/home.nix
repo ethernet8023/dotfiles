@@ -87,6 +87,11 @@
         port = 22;
         user = "ari";
       };
+      iris = {
+        # dhcp moves it around; mdns is stable
+        hostname = "iris.local";
+        user = "ethernet";
+      };
     };
   };
 
