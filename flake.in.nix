@@ -14,7 +14,7 @@
     in
     {
       nixpkgs.url = "github:nixos/nixpkgs/master";
-      nixos-hardware.url = "github:NixOS/nixos-hardware";
+      nixos-hardware = followsNixpkgs "github:NixOS/nixos-hardware";
 
       nur = followsNixpkgs "github:nix-community/NUR";
       agenix = followsNixpkgs "github:ryantm/agenix";
@@ -191,17 +191,20 @@
         );
 
         # AMD + big vram server
-        "hecate" = nixpkgs.lib.nixosSystem (
-          sys
-          // {
-            modules = graphical-modules ++ [
-              # todo: hardware quirks
-              ./nixos/hecate/hardware-configuration.nix
-              ./nixos/hecate/configuration.nix
-              ./nixos/mount-sol-samba-share.nix
-            ];
-          }
-        );
+        # nixos/hecate/hardware-configuration.nix was never committed, so this
+        # can't evaluate -- it takes `nix flake check` down with it. generate
+        # that file on the box (nixos-generate-config) and uncomment.
+        # "hecate" = nixpkgs.lib.nixosSystem (
+        #   sys
+        #   // {
+        #     modules = graphical-modules ++ [
+        #       # todo: hardware quirks
+        #       ./nixos/hecate/hardware-configuration.nix
+        #       ./nixos/hecate/configuration.nix
+        #       ./nixos/mount-sol-samba-share.nix
+        #     ];
+        #   }
+        # );
       };
       # re-enable alongside the "kronos" nixosConfiguration above
       # kronos-sd = nixosConfigurations.kronos.config.system.build.sdImage;

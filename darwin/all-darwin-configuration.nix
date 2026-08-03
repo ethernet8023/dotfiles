@@ -63,7 +63,7 @@
     just
     nvd
     nh
-    inputs.agenix.packages.${pkgs.system}.default
+    inputs.agenix.packages.${pkgs.stdenv.hostPlatform.system}.default
   ];
 
   # touch id for sudo, incl. after a reboot (sudo_local survives updates)

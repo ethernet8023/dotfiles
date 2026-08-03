@@ -202,7 +202,7 @@
     just
     nvd
     steam-run
-    inputs.agenix.packages.${pkgs.system}.default
+    inputs.agenix.packages.${pkgs.stdenv.hostPlatform.system}.default
     clinfo
     nh
   ];

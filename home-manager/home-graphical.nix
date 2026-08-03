@@ -23,7 +23,7 @@
     # desktop env
     hyprpaper # wallpaper manager
     nautilus # file manager
-    inputs.hypr-contrib.packages.${pkgs.system}.grimblast # screenshot tool
+    inputs.hypr-contrib.packages.${pkgs.stdenv.hostPlatform.system}.grimblast # screenshot tool
     pavucontrol # audio control
     blueman # bluetooth manager
     wl-clipboard # copy/paste cli

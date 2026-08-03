@@ -2,6 +2,10 @@
 {
   programs.firefox = {
     enable = true;
+    # upstream's default moves to $XDG_CONFIG_HOME/mozilla/firefox at
+    # stateVersion 26.05. pin the legacy path -- switching means physically
+    # moving ~/.mozilla/firefox, which isn't something a rebuild should do.
+    configPath = ".mozilla/firefox";
     profiles = {
       default = {
         isDefault = true;

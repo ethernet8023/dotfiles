@@ -81,7 +81,23 @@
 
   programs.ssh = {
     enable = true;
-    matchBlocks = {
+    # upstream is dropping its implicit `Host *` defaults, so spell them out
+    # and opt out of the built-ins. these are the values the old default
+    # produced, so the generated config is unchanged.
+    enableDefaultConfig = false;
+    settings = {
+      "*" = {
+        addKeysToAgent = "no";
+        compression = false;
+        controlMaster = "no";
+        controlPath = "~/.ssh/master-%r@%n:%p";
+        controlPersist = "no";
+        forwardAgent = false;
+        hashKnownHosts = false;
+        serverAliveCountMax = 3;
+        serverAliveInterval = 0;
+        userKnownHostsFile = "~/.ssh/known_hosts";
+      };
       hgx = {
         hostname = "216.55.186.241";
         port = 22;
