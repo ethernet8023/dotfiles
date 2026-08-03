@@ -159,7 +159,8 @@
           }
         );
       };
-      kronos-sd = nixosConfigurations.kronos.config.system.build.sdImage;
+      # re-enable alongside the "kronos" nixosConfiguration above
+      # kronos-sd = nixosConfigurations.kronos.config.system.build.sdImage;
 
       checks.x86_64-linux.checkNixpkgsVersions =
         let
