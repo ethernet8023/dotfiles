@@ -18,7 +18,7 @@
     acceptTerms = true;
     defaults.email = "arilotter@gmail.com";
   };
-
+virtualisation.docker.enable = true;
   networking = {
     hostName = "sol";
 
@@ -30,9 +30,13 @@
         443 # https
         139 # netbios
         5030 # slskd
-        7777
+        7777 #
+
+ 8043 29814 29815 29816 29813 28911 28912 27217 8088 8843
       ];
       allowedUDPPorts = [
+ 29810
+27001
         137
         138
         139 # netbios
@@ -61,4 +65,15 @@
   };
 
   hardware.graphics.extraPackages = [ pkgs.intel-media-driver ];
+
+  services.minidlna = {
+    enable = true;
+    openFirewall = true;
+    settings = {
+      notify_interval = 30;
+      friendly_name = "sol";
+      media_dir = ["V,/mnt/storage/enemy"];
+    };
+  };
+  users.users.minidlna.extraGroups = ["users"];
 }
