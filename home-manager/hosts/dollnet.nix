@@ -104,4 +104,13 @@
     #                                        survive a backend restart)
     environmentFiles = [ "${config.home.homeDirectory}/.config/hermes/secrets.env" ];
   };
+
+  programs.beets = {
+    enable = true;
+    settings = {
+      directory = "/mnt/storage/music-sorted";
+      library = "/mnt/storage/music.db";
+      import.move = true;
+    };
+  };
 }
