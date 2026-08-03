@@ -20,15 +20,12 @@
 #
 # data is NOT ported. /mnt/storage dirs are created empty via tmpfiles.
 #
-# secrets the consumer must provide (via agenix on their side):
-#   digitalocean-token  — age secret with a DigitalOcean API token
+# secrets (agenix, in our repo):
+#   secrets/digitalocean-token.age — DigitalOcean API token for DDNS
 #     (write access to ari.computer domain DNS records)
 #
-# the consumer must also declare the age secret:
-#   age.secrets.digitalocean-token.file = ./secrets/digitalocean-token.age;
-#
-# other secrets (not age, just plaintext files the user creates):
-#   /home/ethernet/slskd.env  — soulseek credentials
+# other secrets (plaintext files the user creates):
+#   /home/ethernet/slskd.env — soulseek credentials
 
 {
   pkgs,
@@ -290,8 +287,9 @@ in
 
   # ── DigitalOcean DDNS ─────────────────────────────────────────────────────
   # updates the A record for home.ari.computer to this box's public IP.
-  # polls every 5 min. the age secret must be declared by the consumer:
-  #   age.secrets.digitalocean-token.file = ./secrets/digitalocean-token.age;
+  # polls every 5 min. the token is an agenix secret in our repo.
+  age.secrets.digitalocean-token.file = ../../secrets/digitalocean-token.age;
+
   systemd.services.ddns = {
     enable = true;
     description = "Dynamic DNS Updater";

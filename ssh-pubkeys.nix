@@ -6,6 +6,10 @@ rec {
   iris = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGACmqQ07rrYy2g8cjCkLeVkiBRfqFD1EwF27+AU0He+ arilotter@gmail.com";
   android = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOUl42TMh18ALGzChA0v1BQ6vzOJYmqt3EdFeuMaS0vD";
 
+  # dollnet is dahlia's machine — not ours. the system host key is from
+  # /home/shared/flake/secrets/secrets.nix on that box.
+  dollnet = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOZObFRctpO7wpK79eNYpw4YVLEgGRFo+XB0C1XL2Z/B";
+
   nous-eng = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGifAl2SGcrIZEHkV6hm+zJ7DfyE3Q4MJcqCR0hWgqE5 engineering@nousresearch.com";
   home-devices = [
     luna
