@@ -163,7 +163,15 @@
       push.autoSetupRemote = true;
       url."git@github.com:".insteadOf = "https://github.com/";
       alias = {
-        ci = "!git commit -m 'ci: empty commit' --allow-empty && git push && git reset --soft HEAD~ && git push -f";
+        ci = ''
+          !f() { \
+            STASHED=0; \
+            if ! git diff --cached --quiet; then \
+              git stash push --staged -q -m "auto-stash-before-ci" && STASHED=1; \
+            fi; \
+            git commit --amend --no-edit -q && git push --force-with-lease; \
+            if [ "$STASHED" -eq 1 ]; then git stash pop -q; fi; \
+          }; f'';
         gone = "!git for-each-ref --format='%(refname:short) %(upstream:track)' refs/heads/ | awk '\$2 == \"[gone]\" { print \$1 }'";
         bclean = "!git gone | xargs -r git branch -D";
         wtgone = "!git worktree list --porcelain | awk '/^worktree /{p=$2} /^branch /{b=$2; sub(\"refs/heads/\",\"\",b); print p, b}' | while read path branch; do git gone | grep -qx \"$branch\" && echo \"$path\"; done";
