@@ -102,7 +102,7 @@
         ./darwin/all-darwin-configuration.nix
       ];
     in
-    rec {
+     {
       formatter.x86_64-linux = nixpkgs.legacyPackages.x86_64-linux.nixfmt;
       formatter.aarch64-darwin = nixpkgs.legacyPackages.aarch64-darwin.nixfmt;
 
