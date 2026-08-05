@@ -94,6 +94,31 @@
         provider = "custom";
         api_key = "";
       };
+
+      # nous portal oauth for the dashboard login gate.
+      #
+      # `hermes dashboard register` refuses to run here -- it bails on
+      # is_managed(), on the assumption that a managed install gets its
+      # client_id stamped in by whatever orchestrates it. that assumption is
+      # right; nix IS the orchestrator, so the stamping happens here rather
+      # than by letting the CLI write into .env (which activation truncates
+      # every rebuild anyway).
+      #
+      # get the id from https://portal.nousresearch.com/local-dashboards --
+      # register a dashboard with redirect uri
+      #   http://dollnet.giraffa-richter.ts.net:9119/auth/callback
+      # plain http is fine: the nous provider explicitly allows non-https
+      # hosts and only requires the path end in /auth/callback.
+      #
+      # the plugin reads dashboard.oauth.client_id from config.yaml
+      # (_resolve_client_id, precedence 2 behind the env var), and an empty
+      # string means "no client_id configured" -- so the gate stays on
+      # basic-auth until this is filled in.
+      #
+      # no dashboard.public_url needed: with the backend bound to the magicdns
+      # name, the callback url the auth layer reconstructs from the request is
+      # already correct.
+      dashboard.oauth.client_id = "";
     };
 
     # secrets stay out of the nix store. created by hand, chmod 0600:
