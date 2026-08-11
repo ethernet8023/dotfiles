@@ -30,7 +30,7 @@
     # monado # xr? :D
 
     # 3d pwint
-    prusa-slicer
+    # prusa-slicer
 
     easyeffects # mic settings
 
