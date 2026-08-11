@@ -118,7 +118,7 @@
       # no dashboard.public_url needed: with the backend bound to the magicdns
       # name, the callback url the auth layer reconstructs from the request is
       # already correct.
-      dashboard.oauth.client_id = "";
+      dashboard.oauth.client_id = "agent:cmsgaf3d1005ohz0aml7exdlb";
     };
 
     # secrets stay out of the nix store. created by hand, chmod 0600:
