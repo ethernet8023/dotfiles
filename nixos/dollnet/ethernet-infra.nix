@@ -80,7 +80,16 @@ in
       5030 # slskd
       config.services.slskd.settings.web.port # slskd web
       7777 # game server (ported from sol)
-      8043 29814 29815 29816 29813 28911 28912 27217 8088 8843
+      8043
+      29814
+      29815
+      29816
+      29813
+      28911
+      28912
+      27217
+      8088
+      8843
     ];
     allowedUDPPorts = [
       29810
@@ -95,7 +104,6 @@ in
   # ── Home Assistant ────────────────────────────────────────────────────────
   services.home-assistant = {
     enable = true;
-    openFirewall = true;
     extraComponents = [
       "esphome"
       "met"
