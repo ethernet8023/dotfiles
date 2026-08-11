@@ -59,6 +59,9 @@
         "editor.formatOnSave" = true;
         "typescript.tsserver.experimental.enableProjectDiagnostics" = true;
         "update.mode" = "none";
+        # rip out all the builtin ai chat/copilot stuff
+        "chat.disableAIFeatures" = true;
+        "chat.commandCenter.enabled" = false;
         "rust-analyzer.check.command" = "clippy";
         "python.analysis.typeCheckingMode" = "basic";
         "nix.enableLanguageServer" = true;
