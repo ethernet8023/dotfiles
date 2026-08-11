@@ -52,5 +52,10 @@
   programs.fish.shellAliases = {
     pbpaste = "wl-paste";
     pbcopy = "wl-copy";
+    # hyprland isn't GNOME/KDE, so electron's keyring autodetection falls back
+    # to the plaintext "basic" store and hermes-desktop's safeStorage refuses
+    # to save oauth tokens ("Secure token storage is unavailable"). force the
+    # libsecret backend; gnome-keyring is already running (hyprland.nix).
+    hermes-desktop = "nix run github:nousresearch/hermes-agent#desktop -- --password-store=gnome-libsecret";
   };
 }
