@@ -1,27 +1,36 @@
 { pkgs, lib, ... }:
 let
-  addons = with pkgs.nur.repos.rycee.firefox-addons; [
-    ublock-origin
-    bitwarden
-    sponsorblock
-    refined-github
-    vimium
-    user-agent-string-switcher
-  ];
+  ffAddons = pkgs.nur.repos.rycee.firefox-addons;
+
+  # addon -> extra ExtensionSettings keys. private_browsing is emitted only
+  # where listed: an explicit false revokes access and greys out the toggle,
+  # which is a bigger lockdown than freezing the addon set.
+  addons = {
+    ublock-origin.private_browsing = true;
+    bitwarden = { };
+    sponsorblock = { };
+    refined-github = { };
+    vimium = { };
+    user-agent-string-switcher = { };
+  };
 
   # rycee's addon packages drop exactly one xpi, named after the addon id,
   # under the firefox application id. policies force_installed needs a URL to
   # that file rather than the package.
   firefoxAppId = "{ec8030f7-c20a-464f-9b0e-13a3a9e97384}";
-  forceInstalled = lib.listToAttrs (
-    map (
-      addon:
-      lib.nameValuePair addon.addonId {
+  forceInstalled = lib.mapAttrs' (
+    name: extra:
+    let
+      addon = ffAddons.${name};
+    in
+    lib.nameValuePair addon.addonId (
+      {
         installation_mode = "force_installed";
         install_url = "file://${addon}/share/mozilla/extensions/${firefoxAppId}/${addon.addonId}.xpi";
       }
-    ) addons
-  );
+      // extra
+    )
+  ) addons;
 in
 {
   programs.firefox = {
