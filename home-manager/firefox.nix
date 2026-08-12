@@ -1,4 +1,28 @@
-{ pkgs, ... }:
+{ pkgs, lib, ... }:
+let
+  addons = with pkgs.nur.repos.rycee.firefox-addons; [
+    ublock-origin
+    bitwarden
+    sponsorblock
+    refined-github
+    vimium
+    user-agent-string-switcher
+  ];
+
+  # rycee's addon packages drop exactly one xpi, named after the addon id,
+  # under the firefox application id. policies force_installed needs a URL to
+  # that file rather than the package.
+  firefoxAppId = "{ec8030f7-c20a-464f-9b0e-13a3a9e97384}";
+  forceInstalled = lib.listToAttrs (
+    map (
+      addon:
+      lib.nameValuePair addon.addonId {
+        installation_mode = "force_installed";
+        install_url = "file://${addon}/share/mozilla/extensions/${firefoxAppId}/${addon.addonId}.xpi";
+      }
+    ) addons
+  );
+in
 {
   programs.firefox = {
     enable = true;
@@ -6,18 +30,42 @@
     # stateVersion 26.05. pin the legacy path -- switching means physically
     # moving ~/.mozilla/firefox, which isn't something a rebuild should do.
     configPath = ".mozilla/firefox";
+
+    policies = {
+      # the addon set is frozen here rather than in the profile: everything is
+      # blocked by default, so the addons page offers neither install nor
+      # remove for anything, including the entries below.
+      ExtensionSettings = {
+        "*" = {
+          installation_mode = "blocked";
+        };
+      }
+      // forceInstalled;
+
+      # bitwarden owns credentials. the built-in manager only competes with it.
+      PasswordManagerEnabled = false;
+      OfferToSaveLogins = false;
+      DisableFirefoxAccounts = false;
+
+      # blank new tab, and nothing on about:home either.
+      NewTabPage = false;
+      FirefoxHome = {
+        Search = false;
+        TopSites = false;
+        SponsoredTopSites = false;
+        Highlights = false;
+        Pocket = false;
+        SponsoredPocket = false;
+        Stories = false;
+        SponsoredStories = false;
+        Snippets = false;
+        Locked = true;
+      };
+    };
+
     profiles = {
       default = {
         isDefault = true;
-        extensions = {
-          packages = with pkgs.nur.repos.rycee.firefox-addons; [
-            ublock-origin
-            bitwarden
-            sponsorblock
-            refined-github
-          ];
-          force = true;
-        };
         userChrome = ''
           #back-button, #forward-button {
             display: none;
@@ -33,9 +81,29 @@
           "browser.search.visualSearch.featureGate" = false;
           "browser.translations.select.enable" = false;
           "browser.ml.chat.menu" = false;
+          "print.enabled" = true;
+
+          # no stored credentials, no autofill, no capture prompts.
+          "signon.rememberSignons" = false;
+          "signon.autofillForms" = false;
+          "signon.generation.enabled" = false;
+          "signon.management.page.breach-alerts.enabled" = false;
+          "signon.firefoxRelay.feature" = "disabled";
           "extensions.formautofill.addresses.enabled" = false;
           "extensions.formautofill.creditCards.enabled" = false;
-          "print.enabled" = true;
+
+          # new tab: no page, and every widget off in case one ever renders.
+          "browser.newtabpage.enabled" = false;
+          "browser.newtabpage.activity-stream.showSearch" = false;
+          "browser.newtabpage.activity-stream.feeds.topsites" = false;
+          "browser.newtabpage.activity-stream.feeds.section.topstories" = false;
+          "browser.newtabpage.activity-stream.feeds.section.highlights" = false;
+          "browser.newtabpage.activity-stream.feeds.snippets" = false;
+          "browser.newtabpage.activity-stream.feeds.weatherfeed" = false;
+          "browser.newtabpage.activity-stream.showWeather" = false;
+          "browser.newtabpage.activity-stream.showSponsored" = false;
+          "browser.newtabpage.activity-stream.showSponsoredTopSites" = false;
+          "browser.newtabpage.activity-stream.system.showSponsored" = false;
         };
       };
     };
