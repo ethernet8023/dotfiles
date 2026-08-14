@@ -240,9 +240,23 @@ in
       ++ (h.workspaceBinds { mod = mod; });
 
       window_rule = [
-        (h.floatRule { class = "^(pavucontrol)$"; })
-        (h.floatRule { title = "^(Open Files)$"; })
-        (h.floatRule { title = "^(Save File)$"; })
+        {
+          match.class = "^(pavucontrol)$";
+          float = true;
+        }
+        {
+          match.title = "^(Open Files)$";
+          float = true;
+        }
+        {
+          match.title = "^(Save File)$";
+          float = true;
+        }
+        {
+          match.title = "^(Hermes HUD)$";
+          float = true;
+          border_size = 0;
+        }
       ];
     };
 
