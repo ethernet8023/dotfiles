@@ -58,10 +58,7 @@
       inputs.nixpkgs.follows = "nixpkgs";
       url = "github:nix-community/nix-vscode-extensions";
     };
-    vscode-server = {
-      inputs.nixpkgs.follows = "nixpkgs";
-      url = "github:nix-community/nixos-vscode-server";
-    };
+    vscode-server.url = "github:nix-community/nixos-vscode-server";
   };
   nixConfig.extra-deprecated-features = [ "broken-string-escape" ];
   outputs = inputs: inputs.flakegen ./flake.in.nix inputs;

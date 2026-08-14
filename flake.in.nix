@@ -36,7 +36,7 @@
         inputs.nixpkgs.follows = "nixpkgs";
       };
       catppuccin = followsNixpkgs "github:catppuccin/nix";
-      vscode-server = followsNixpkgs "github:nix-community/nixos-vscode-server";
+      vscode-server.url = "github:nix-community/nixos-vscode-server";
     };
 
   outputs =
