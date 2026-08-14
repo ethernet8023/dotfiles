@@ -33,7 +33,6 @@ in
         text = nvidiaProfile;
       };
 
-  hardware.nvidia-container-toolkit.enable = true;
   virtualisation.docker = {
     daemon.settings.features.cdi = true;
     rootless.daemon.settings.features.cdi = true;
