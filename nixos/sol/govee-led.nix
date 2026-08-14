@@ -1,6 +1,7 @@
-{ lib
-, buildHomeAssistantComponent
-, fetchFromGitHub
+{
+  lib,
+  buildHomeAssistantComponent,
+  fetchFromGitHub,
 }:
 
 buildHomeAssistantComponent {
@@ -17,7 +18,7 @@ buildHomeAssistantComponent {
 
   dontBuild = true;
 
-  propagatedBuildInputs = [];
+  propagatedBuildInputs = [ ];
 
   doCheck = false;
 

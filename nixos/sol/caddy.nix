@@ -5,8 +5,8 @@ let
 
   services = {
     ${toString config.services.slskd.openPorts.first} = "api";
-    8888 = "dashboard";
-    9000 = "metrics";
+    # 8888 = "dashboard";
+    # 9000 = "metrics";
   };
 
   mkCaddyProxy = port: subdomain: ''
@@ -18,18 +18,22 @@ let
     }
   '';
 
-  caddyConfig = 
+  caddyConfig =
     let
       proxyConfigs = pkgs.lib.mapAttrsToList mkCaddyProxy services;
     in
     pkgs.lib.concatStringsSep "\n" proxyConfigs;
 
-in {
+in
+{
   services.caddy = {
     enable = true;
-    
+
     configFile = pkgs.writeText "Caddyfile" caddyConfig;
   };
 
-  networking.firewall.allowedTCPPorts = [ 80 443 ];
+  networking.firewall.allowedTCPPorts = [
+    80
+    443
+  ];
 }
