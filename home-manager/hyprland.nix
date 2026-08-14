@@ -139,8 +139,9 @@ in
         (h.monitor {
           output = "DP-2";
           mode = "3840x2160@60";
-          position = "1440x600";
+          position = "1440x32";
           scale = 1.5;
+          transform = 3;
         })
         (h.monitor {
           output = "DP-1";
