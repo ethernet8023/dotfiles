@@ -3,7 +3,7 @@
   ...
 }:
 {
-  home.packages = [ pkgs.supersonic-wayland ];
+  home.packages = [ pkgs.supersonic ];
   services.mpris-proxy.enable = true;
   # xdg.configFile."supersonic/themes/nix-theme.toml".text =
   #   with config.lib.stylix.colors.withHashtag; ''
