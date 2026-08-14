@@ -26,15 +26,6 @@
       fido2-hid-bridge = followsNixpkgs "github:arilotter/fido2-hid-bridge-flake";
       fw-inputmodule = followsNixpkgs "github:caffineehacker/nix?dir=flakes/inputmodule-rs";
       # nixvim = followsNixpkgs "github:nix-community/nixvim";
-      lix = {
-        url = "https://git.lix.systems/lix-project/lix/archive/main.tar.gz";
-        flake = false;
-      };
-      lix-module = {
-        url = "https://git.lix.systems/lix-project/nixos-module/archive/main.tar.gz";
-        inputs.lix.follows = "lix";
-        inputs.nixpkgs.follows = "nixpkgs";
-      };
       catppuccin = followsNixpkgs "github:catppuccin/nix";
       vscode-server.url = "github:nix-community/nixos-vscode-server";
     };
@@ -47,7 +38,6 @@
       home-manager,
       agenix,
       fido2-hid-bridge,
-      lix-module,
       catppuccin,
       ...
     }@inputs:
@@ -59,7 +49,6 @@
       };
 
       base-modules = [
-        lix-module.nixosModules.default
         agenix.nixosModules.default
         nur.modules.nixos.default
         fido2-hid-bridge.nixosModules.default

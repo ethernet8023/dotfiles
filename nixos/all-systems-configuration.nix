@@ -12,11 +12,20 @@
     overlays = [
       inputs.nur.overlays.default
       inputs.vscode-ext.overlays.default
+      (final: prev: {
+        inherit (prev.lixPackageSets.stable)
+          nixpkgs-review
+          nix-eval-jobs
+          nix-fast-build
+          colmena
+          ;
+      })
     ];
     config.allowUnfree = true;
   };
 
   nix = {
+    package = pkgs.lixPackageSets.stable.lix;
     settings = {
       trusted-users = [
         "root"

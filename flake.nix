@@ -30,17 +30,6 @@
       inputs.nixpkgs.follows = "nixpkgs";
       url = "github:hyprwm/contrib";
     };
-    lix = {
-      flake = false;
-      url = "https://git.lix.systems/lix-project/lix/archive/main.tar.gz";
-    };
-    lix-module = {
-      inputs = {
-        lix.follows = "lix";
-        nixpkgs.follows = "nixpkgs";
-      };
-      url = "https://git.lix.systems/lix-project/nixos-module/archive/main.tar.gz";
-    };
     nix-darwin = {
       inputs.nixpkgs.follows = "nixpkgs";
       url = "github:nix-darwin/nix-darwin";
