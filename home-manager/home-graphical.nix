@@ -38,6 +38,8 @@
     google-chrome # web browser
     slack # ew
 
+    deskflow # one kb/mouse across luna, hermes, promise, iris
+
     # clang format needs..
     clang-tools
 

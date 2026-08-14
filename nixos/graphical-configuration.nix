@@ -68,6 +68,10 @@
 
   networking.networkmanager.enable = true;
 
+  # deskflow: the server listens here and every client dials in. without this
+  # the clients just retry forever with no error worth reading.
+  networking.firewall.allowedTCPPorts = [ 24800 ];
+
   fonts.packages = with pkgs; [
     noto-fonts
     noto-fonts-cjk-sans
