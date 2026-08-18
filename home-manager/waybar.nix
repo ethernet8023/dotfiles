@@ -204,10 +204,12 @@
       }
 
       /* Workspace pills are individual buttons inside one module, so they
-         need their own padding; the rule above only reaches the container. */
+         need their own padding; the rule above only reaches the container.
+         The icons are single nerd-font glyphs, which sit wider than their
+         advertised advance width, so they need more room than plain text. */
       #workspaces button {
-        padding-left: 6px;
-        padding-right: 6px;
+        padding-left: 10px;
+        padding-right: 10px;
       }
     '';
   };
