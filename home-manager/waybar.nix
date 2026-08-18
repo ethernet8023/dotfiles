@@ -1,5 +1,6 @@
 {
   pkgs,
+  lib,
   ...
 }:
 {
@@ -19,12 +20,20 @@
 
     systemd.enable = true;
     settings = {
+      # `settings` is an attrsOf submodule, so a host file setting
+      # settings.mainBar.position overrides just that key and leaves the rest
+      # of this bar alone. The keys describing bar geometry are mkDefault
+      # because they only suit a vertical bar; luna turns it horizontal in
+      # hosts/luna.nix, and a plain value there would conflict with one here.
       mainBar = {
         layer = "top";
-        position = "right";
-        width = 50;
+        position = lib.mkDefault "right";
+        # Cross-axis size of a vertical bar. A horizontal bar takes its height
+        # from the modules instead, so luna nulls this out.
+        width = lib.mkDefault 50;
         margin = "16";
-        margin-right = 0;
+        # Pin the bar flush against the edge it lives on.
+        margin-right = lib.mkDefault 0;
         spacing = 0;
         output = [
           "DP-2"
@@ -177,11 +186,29 @@
         };
       };
     };
-    # style = ''
-    #   * {
-    #       font-family: "${fonts.${cfg.font}.name}";
-    #       font-size: ${toString fonts.sizes.desktop}pt;
-    #   }
-    # '';
+
+    # Supplying `style` at all replaces Waybar's default stylesheet, and the
+    # catppuccin module's definition is only colour variables -- so nothing
+    # sets the module padding the default sheet normally provides, and the
+    # items sit flush against each other. The option is `lines`, so this
+    # concatenates with catppuccin's rather than conflicting with it.
+    #
+    # Horizontal padding on the modules themselves (not `spacing`, which is
+    # gaps *between* modules only, leaving each item's own text edge-to-edge).
+    style = ''
+      .modules-left > widget > *,
+      .modules-center > widget > *,
+      .modules-right > widget > * {
+        padding-left: 10px;
+        padding-right: 10px;
+      }
+
+      /* Workspace pills are individual buttons inside one module, so they
+         need their own padding; the rule above only reaches the container. */
+      #workspaces button {
+        padding-left: 6px;
+        padding-right: 6px;
+      }
+    '';
   };
 }
