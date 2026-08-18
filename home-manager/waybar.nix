@@ -1,7 +1,22 @@
-{ ... }:
+{
+  pkgs,
+  ...
+}:
 {
   programs.waybar = {
     enable = true;
+
+    # Waybar 0.15.0 still speaks the pre-0.54 Hyprland IPC dispatch format
+    # ("dispatch workspace 3"). Hyprland runs the Lua config manager here (see
+    # hyprland.nix, configType = "lua"), which evaluates that as Lua and fails
+    # with a syntax error, so clicking a workspace does nothing. Upstream fixed
+    # this by probing the Hyprland version and emitting hl.dsp.focus{...}, but
+    # the fix is unreleased -- 0.15.0 predates it. Drop this patch once nixpkgs
+    # carries a release containing Alexays/Waybar#5008.
+    package = pkgs.waybar.overrideAttrs (old: {
+      patches = (old.patches or [ ]) ++ [ ./waybar-hyprland-lua-dispatch.patch ];
+    });
+
     systemd.enable = true;
     settings = {
       mainBar = {
