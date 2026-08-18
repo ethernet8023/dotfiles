@@ -11,6 +11,9 @@ in
 
   # home is /home/ethie here, which is what identity.nix defaults to.
 
+  # luna-only home config, layered over the shared graphical one.
+  home-manager.users.ethie.imports = [ ../../home-manager/hosts/luna.nix ];
+
   services.xserver = {
     videoDrivers = [ "nvidia" ];
     displayManager.importedVariables = [
