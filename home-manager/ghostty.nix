@@ -1,7 +1,4 @@
 {
-  inputs,
-  config,
-  pkgs,
   ...
 }:
 {
@@ -13,6 +10,7 @@
       gtk-titlebar = false;
       window-padding-x = 8;
       window-padding-y = 8;
+      font-family = (import ./font.nix).mono;
     };
   };
 }

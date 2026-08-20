@@ -19,8 +19,12 @@ in
     QT_QPA_PLATFORM = "wayland";
     QT_QPA_PLATFORM_THEME = "qt6ct";
     QT_AUTO_SCREEN_SCALE_FACTOR = "1";
-    # HYPRCURSOR_THEME = config.home.pointerCursor.name;
-    # HYPRCURSOR_SIZE = config.home.pointerCursor.size;
+  };
+
+  xdg.configFile."uwsm/env".source = "${config.home.sessionVariablesPackage}/etc/profile.d/hm-session-vars.sh";
+
+  gtk.font = {
+    name = (import ./font.nix).propo;
   };
 
   services.hypridle = {
@@ -70,7 +74,7 @@ in
     enable = true;
     portalPackage = null;
     xwayland.enable = true;
-    systemd.enable = true;
+    systemd.enable = false;
 
     configType = "lua";
 

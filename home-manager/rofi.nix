@@ -13,7 +13,10 @@
         inherit (config.lib.formats.rasi) mkLiteral;
       in
       {
-        "*".spacing = 2;
+        "*" = {
+          font = "${(import ./font.nix).propo} 11";
+          spacing = 2;
+        };
         window = {
           location = mkLiteral "center";
           anchor = mkLiteral "north";
