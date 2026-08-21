@@ -2,7 +2,6 @@
 {
   imports = [
     ./tuigreet.nix
-    ./catppuccin.nix
   ];
 
   boot.plymouth.enable = true;
@@ -10,8 +9,6 @@
   console.keyMap = "us";
 
   services.xserver.xkb.layout = "us";
-
-  security.pam.services.hyprlock = { };
 
   hardware.graphics = {
     enable = true;

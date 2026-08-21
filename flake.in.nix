@@ -26,8 +26,23 @@
       fido2-hid-bridge = followsNixpkgs "github:arilotter/fido2-hid-bridge-flake";
       fw-inputmodule = followsNixpkgs "github:caffineehacker/nix?dir=flakes/inputmodule-rs";
       # nixvim = followsNixpkgs "github:nix-community/nixvim";
-      catppuccin = followsNixpkgs "github:catppuccin/nix";
+      stylix = followsNixpkgs "github:nix-community/stylix";
+      # nixcord takes TWO nixpkgs: `nixpkgs` for the module and a separately
+      # pinned `nixpkgs-nixcord` it builds vencord/vesktop from. followsNixpkgs
+      # only redirects the first, so the second is set explicitly -- otherwise
+      # it silently adds a whole extra nixpkgs to the closure.
+      nixcord = {
+        url = "github:4evy/nixcord";
+        inputs.nixpkgs.follows = "nixpkgs";
+        inputs.nixpkgs-nixcord.follows = "nixpkgs";
+      };
+      # NOT followsNixpkgs: hermes-agent builds a uv2nix python set against the
+      # nixpkgs it pins and tests with, so overriding that input breaks the
+      # build. It therefore brings its own nixpkgs -- see the exemption in
+      # checks.checkNixpkgsVersions below.
+      hermes-agent.url = "github:NousResearch/hermes-agent";
       vscode-server.url = "github:nix-community/nixos-vscode-server";
+      noctalia = followsNixpkgs "github:noctalia-dev/noctalia";
     };
 
   outputs =
@@ -38,10 +53,12 @@
       home-manager,
       agenix,
       fido2-hid-bridge,
-      catppuccin,
+      stylix,
       ...
     }@inputs:
     let
+      inherit (nixpkgs) lib;
+
       sys = {
         specialArgs = {
           inherit inputs;
@@ -67,7 +84,7 @@
         }
       ];
       graphical-modules = base-modules ++ [
-        catppuccin.nixosModules.catppuccin
+        stylix.nixosModules.stylix
         ./nixos/graphical-configuration.nix
         {
           # home-graphical.nix pulls in home.nix itself
@@ -106,14 +123,22 @@
       # of home-manager/hosts/dollnet.nix for why the package is injected rather
       # than pinned here.
       #
-      # the other two are the building blocks, exposed for reuse:
-      # hermes-agent needs `services.hermes-agent.package` set by the consumer;
-      # server expects home.username / home.homeDirectory from the consumer too,
+      # the hermes-agent module itself is no longer carried here: upstream ships
+      # `homeManagerModules.default` now, which absorbed everything this repo's
+      # port had except the backend hostname/interface wait. consumers import it
+      # from github:NousResearch/hermes-agent directly.
+      #
+      # `server` expects home.username / home.homeDirectory from the consumer,
       # since identity.nix only applies to my own hosts.
       homeModules = {
         dollnet = ./home-manager/hosts/dollnet.nix;
-        hermes-agent = ./home-manager/hermes-agent.nix;
         server = ./home-manager/home-server.nix;
+
+        # Stylix target for hermes-agent: generates a Hermes skin from the
+        # active base16 scheme and selects it. Import alongside upstream's
+        # `homeManagerModules.default` and stylix's own home module; it is inert
+        # unless both stylix and services.hermes-agent are enabled.
+        stylix-hermes-agent = ./home-manager/stylix-hermes-agent.nix;
       };
 
       # NixOS modules importable by other flakes. same principle as homeModules:
@@ -225,18 +250,58 @@
       # re-enable alongside the "kronos" nixosConfiguration above
       # kronos-sd = nixosConfigurations.kronos.config.system.build.sdImage;
 
+      # Every input should follow the one nixpkgs, so the closure holds a single
+      # copy. hermes-agent is the deliberate exception: it evaluates a uv2nix
+      # python set against the nixpkgs it pins and tests against, and pointing
+      # that at nixpkgs-master breaks the build.
+      #
+      # Checking node names (`nixpkgs_2`) is not reliable -- nix numbers them by
+      # discovery order, so adding an input can renumber the existing ones and
+      # move the name onto an innocent node. Count the distinct nixpkgs *repos*
+      # instead and name the allowed second one.
       checks.x86_64-linux.checkNixpkgsVersions =
         let
           pkgs = nixpkgs.legacyPackages.x86_64-linux;
+          lock = builtins.fromJSON (builtins.readFile ./flake.lock);
+
+          # Nodes that are a full nixpkgs checkout (not nixpkgs.lib).
+          nixpkgsNodes = lib.filterAttrs (
+            _: node:
+            let
+              l = node.locked or { };
+            in
+            (l.repo or "") == "nixpkgs"
+          ) lock.nodes;
+
+          # Which input of the root node each nixpkgs node is reachable from.
+          owners = lib.mapAttrsToList (
+            name: _:
+            let
+              viaRoot = lib.filterAttrs (_: v: v == name) (lock.nodes.root.inputs or { });
+              viaOther = lib.concatMap (
+                n: lib.optional (lib.any (v: v == name) (lib.attrValues (lock.nodes.${n}.inputs or { }))) n
+              ) (builtins.attrNames lock.nodes);
+            in
+            if viaRoot != { } then "root" else lib.head (viaOther ++ [ "?" ])
+          ) nixpkgsNodes;
+
+          allowed = [
+            "root"
+            "hermes-agent"
+          ];
+          unexpected = lib.subtractLists allowed owners;
         in
-        pkgs.runCommand "check-nixpkgs-versions" { } ''
-          if grep -q "nixpkgs_2" ${self}/flake.lock; then
-            echo "Error: Found nixpkgs_2 in flake.lock"
-            echo "You should add followsNixpkgs to the input that uses nixpkgs_2."
-            exit 1
-          fi
-          touch $out
-        '';
+        pkgs.runCommand "check-nixpkgs-versions" { } (
+          if unexpected == [ ] then
+            "touch $out"
+          else
+            ''
+              echo "Error: these inputs pull in their own nixpkgs:"
+              ${lib.concatMapStringsSep "\n" (o: ''echo "  - ${o}"'') unexpected}
+              echo "Add followsNixpkgs to them, or allow them in checkNixpkgsVersions."
+              exit 1
+            ''
+        );
     };
 
 }

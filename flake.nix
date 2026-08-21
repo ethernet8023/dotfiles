@@ -9,10 +9,6 @@
       inputs.nixpkgs.follows = "nixpkgs";
       url = "github:ryantm/agenix";
     };
-    catppuccin = {
-      inputs.nixpkgs.follows = "nixpkgs";
-      url = "github:catppuccin/nix";
-    };
     fido2-hid-bridge = {
       inputs.nixpkgs.follows = "nixpkgs";
       url = "github:arilotter/fido2-hid-bridge-flake";
@@ -22,6 +18,7 @@
       inputs.nixpkgs.follows = "nixpkgs";
       url = "github:caffineehacker/nix?dir=flakes/inputmodule-rs";
     };
+    hermes-agent.url = "github:NousResearch/hermes-agent";
     home-manager = {
       inputs.nixpkgs.follows = "nixpkgs";
       url = "github:nix-community/home-manager";
@@ -34,14 +31,29 @@
       inputs.nixpkgs.follows = "nixpkgs";
       url = "github:nix-darwin/nix-darwin";
     };
+    nixcord = {
+      inputs = {
+        nixpkgs.follows = "nixpkgs";
+        nixpkgs-nixcord.follows = "nixpkgs";
+      };
+      url = "github:4evy/nixcord";
+    };
     nixos-hardware = {
       inputs.nixpkgs.follows = "nixpkgs";
       url = "github:NixOS/nixos-hardware";
     };
     nixpkgs.url = "github:nixos/nixpkgs/master";
+    noctalia = {
+      inputs.nixpkgs.follows = "nixpkgs";
+      url = "github:noctalia-dev/noctalia";
+    };
     nur = {
       inputs.nixpkgs.follows = "nixpkgs";
       url = "github:nix-community/NUR";
+    };
+    stylix = {
+      inputs.nixpkgs.follows = "nixpkgs";
+      url = "github:nix-community/stylix";
     };
     vscode-ext = {
       inputs.nixpkgs.follows = "nixpkgs";

@@ -5,23 +5,25 @@
 }:
 {
   imports = [
-    inputs.catppuccin.homeModules.catppuccin
+    inputs.stylix.homeModules.stylix
+    inputs.noctalia.homeModules.default
+    inputs.nixcord.homeModules.nixcord
+    inputs.hermes-agent.homeManagerModules.default
     ./home.nix
     ./hyprland.nix
     ./ghostty.nix
-    ./mako.nix
     ./firefox.nix
-    ./rofi.nix
-    ./waybar.nix
     ./supersonic.nix
     ./vscode.nix
     # ./neovim.nix
-    ../nixos/catppuccin.nix
+
+    ./stylix.nix
+    ./stylix-hermes-agent.nix
+    ./noctalia.nix
   ];
 
   home.packages = with pkgs; [
     # desktop env
-    hyprpaper # wallpaper manager
     nautilus # file manager
     inputs.hypr-contrib.packages.${pkgs.stdenv.hostPlatform.system}.grimblast # screenshot tool
     pavucontrol # audio control
@@ -49,7 +51,13 @@
     beeper
   ];
 
-  programs.vesktop.enable = true;
+  # Discord, via nixcord: it manages vesktop (the client) plus vencord (the mod)
+  # declaratively, and stylix themes it through modules/discord/.
+  programs.nixcord = {
+    enable = true;
+    vesktop.enable = true;
+    discord.enable = false;
+  };
 
   programs.fish.shellAliases = {
     pbpaste = "wl-paste";

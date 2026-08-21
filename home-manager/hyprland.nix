@@ -21,54 +21,16 @@ in
     QT_AUTO_SCREEN_SCALE_FACTOR = "1";
   };
 
-  xdg.configFile."uwsm/env".source = "${config.home.sessionVariablesPackage}/etc/profile.d/hm-session-vars.sh";
+  xdg.configFile."uwsm/env".source =
+    "${config.home.sessionVariablesPackage}/etc/profile.d/hm-session-vars.sh";
 
   gtk.font = {
     name = (import ./font.nix).propo;
   };
 
-  services.hypridle = {
-    enable = false;
-    settings = {
-      general = {
-        before_sleep_cmd = "hyprlock";
-        ignore_dbus_inhibit = false;
-        lock_cmd = "hyprlock";
-      };
-      listener = [
-        {
-          timeout = 60;
-          on-timeout = "hyprlock";
-        }
-      ];
-    };
-  };
-
-  programs.hyprlock = {
-    enable = true;
-    settings = {
-      general = {
-        disable_loading_bar = true;
-        grace = 10;
-        hide_cursor = true;
-        no_fade_in = false;
-      };
-
-      # input-field = [
-      #   {
-      #     size = "400, 50";
-      #     position = "0, 0";
-      #     monitor = "";
-      #     dots_center = true;
-      #     fade_on_empty = false;
-      #     rounding = -1;
-      #     outline_thickness = 2;
-      #     placeholder_text = "";
-      #     fail_text = "";
-      #   }
-      # ];
-    };
-  };
+  # hypridle/hyprlock are retired: noctalia owns the lock screen ([lockscreen])
+  # and idle behaviour ([idle.behavior.*]), and its lock screen authenticates
+  # against the stock `login` pam service, so no pam entry is needed for it.
 
   wayland.windowManager.hyprland = {
     enable = true;
@@ -83,16 +45,29 @@ in
       # (general, decoration, input, ...) now lives under hl.config({...}).
       config = {
         general = {
-          gaps_in = 4;
-          gaps_out = 4;
-          border_size = 4;
+          gaps_in = 5;
+          gaps_out = 10;
+          border_size = 2;
           layout = "dwindle";
         };
 
         decoration = {
-          rounding = 9;
-          blur.enabled = false;
-          shadow.enabled = false;
+          rounding = 20;
+          rounding_power = 2;
+
+          shadow = {
+            enabled = true;
+            range = 4;
+            render_power = 3;
+            # colour comes from stylix's hyprland target (base00 at 99 alpha)
+          };
+
+          blur = {
+            enabled = true;
+            size = 3;
+            passes = 2;
+            vibrancy = 0.1696;
+          };
         };
 
         animations.enabled = false;
@@ -132,9 +107,9 @@ in
       };
 
       on = [
-        # exec-once replacements
+        # exec-once replacements. noctalia runs as a systemd user unit bound to
+        # graphical-session.target (see noctalia.nix), so it is not started here.
         (h.onEvent "hyprland.start" [
-          "hyprpaper"
           "gnome-keyring-daemon --start --components=secrets"
         ])
       ];
@@ -168,7 +143,7 @@ in
         (h.bind (h.key mod "Return") (h.exec "ghostty"))
         (h.bind (h.key mod "R") (h.layout "togglesplit"))
         (h.bind (h.key mod "F") h.window.fullscreenToggle)
-        (h.bind (h.key mod "D") (h.exec ''rofi -show drun -display-drun " " -show-icons''))
+        (h.bind (h.key mod "D") (h.exec "noctalia msg panel-toggle launcher"))
         (h.bind (h.key "${mod} + SHIFT" "Q") h.window.close)
 
         # window / workspace nav
@@ -178,9 +153,12 @@ in
         (h.bind (h.key mod "Space") h.window.floatToggle)
         (h.bind (h.key "${mod} + SHIFT" "Space") h.window.pseudoToggle)
 
-        # widgets
-        (h.bind (h.key mod "C") (h.exec "ags toggle-window notificationsCenter"))
-        (h.bind (h.key mod "N") (h.exec "ags toggle-window quicksettings"))
+        # shell panels (was `ags toggle-window ...`; ags is not installed)
+        (h.bind (h.key mod "C") (h.exec "noctalia msg panel-toggle notifications"))
+        (h.bind (h.key mod "N") (h.exec "noctalia msg panel-toggle control-center"))
+        (h.bind (h.key mod "V") (h.exec "noctalia msg panel-toggle clipboard"))
+        (h.bind (h.key mod "L") (h.exec "noctalia msg session lock"))
+        (h.bind (h.key "${mod} + SHIFT" "E") (h.exec "noctalia msg panel-toggle session"))
 
         # screenshots
         (h.bind (h.noMod "Print") (h.exec "grimblast copysave output # screenshot"))
@@ -243,9 +221,26 @@ in
       ]
       ++ (h.workspaceBinds { mod = mod; });
 
+      # noctalia's surfaces are layer-shell, except the settings window, which is
+      # a real window (class dev.noctalia.Noctalia). Namespaces verified against
+      # the noctalia source; the wallpaper layer is deliberately excluded from
+      # blur, since blurring the backdrop costs work and shows nothing.
+      layer_rule = [
+        {
+          match.namespace = "^noctalia-(bar-.+|dock|panel|attached-panel|notification|osd)$";
+          blur = true;
+          blur_popups = true;
+          ignore_alpha = 0.5;
+        }
+      ];
+
       window_rule = [
         {
           match.class = "^(pavucontrol)$";
+          float = true;
+        }
+        {
+          match.class = "^(dev\\.noctalia\\.Noctalia)$";
           float = true;
         }
         {

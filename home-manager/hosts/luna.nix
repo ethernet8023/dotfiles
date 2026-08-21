@@ -7,16 +7,25 @@
   # else comes from home-graphical.nix.
 
   # A bar down the long edge of a portrait monitor eats a lot of vertical
-  # space, and the short edge is cheap -- so run it horizontally along the
-  # bottom rather than vertically like the laptop does. The keys overridden
-  # here are mkDefault in ../waybar.nix.
-  programs.waybar.settings.mainBar = {
-    position = "bottom";
-    # A horizontal bar takes its height from the modules; width is the
-    # cross-axis size of a vertical bar and would squash this one. null drops
-    # the key from the generated config entirely.
-    width = null;
-    margin-right = null;
-    margin-bottom = 0;
+  # space, and the short edge is cheap -- so run it along the bottom rather
+  # than the top like the laptop does.
+  programs.noctalia.settings.bar.main.position = "bottom";
+
+  # Hermes Agent, for the desktop app.
+  #
+  # "serve" is the headless backend: the /api/ws + /api/pty sockets Hermes
+  # Desktop attaches to, without building the browser admin panel. Loopback
+  # only -- this machine is the client, so nothing needs to reach it over the
+  # tailnet, and binding elsewhere would turn on the dashboard's auth gate.
+  #
+  # No gateway here: that is the messaging side (Telegram, Discord, ...) and it
+  # is a separate process from the backend. dollnet runs that one.
+  services.hermes-agent = {
+    enable = true;
+    backend = {
+      mode = "serve";
+      host = "127.0.0.1";
+      port = 9119;
+    };
   };
 }

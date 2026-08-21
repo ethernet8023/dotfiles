@@ -14,6 +14,11 @@ in
   # luna-only home config, layered over the shared graphical one.
   home-manager.users.ethie.imports = [ ../../home-manager/hosts/luna.nix ];
 
+  # Keep the systemd user manager running when no session is logged in, so the
+  # hermes-backend unit (hosts/luna.nix) survives logout and starts at boot.
+  # home-manager cannot set this itself -- it needs `loginctl enable-linger`.
+  users.users.${config.me.username}.linger = true;
+
   services.xserver = {
     videoDrivers = [ "nvidia" ];
     displayManager.importedVariables = [

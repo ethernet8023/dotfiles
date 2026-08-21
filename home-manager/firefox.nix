@@ -118,7 +118,9 @@ in
     };
   };
 
-  catppuccin.firefox.force = true;
+  # stylix cannot discover firefox profiles on its own, and silently skips
+  # theming without this. Matches the `default` profile declared above.
+  stylix.targets.firefox.profileNames = [ "default" ];
 
   xdg.mimeApps.defaultApplications = {
     "text/html" = [ "firefox.desktop" ];

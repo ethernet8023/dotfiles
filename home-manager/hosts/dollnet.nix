@@ -17,16 +17,14 @@
   #
   # this file bundles its own imports, so her flake pulls in exactly one thing.
   #
-  # the hermes-agent package is passed in rather than taken from an input of
-  # mine: dollnet already has hermes-agent as a flake input for dahlia's
-  # system-level instance, and reusing it keeps one copy of hermes-agent (and
-  # one nixpkgs) in the closure instead of two. it also keeps this repo's
-  # checkNixpkgsVersions check happy -- adding hermes-agent here would need
-  # followsNixpkgs, which would evaluate its uv2nix python set against
-  # nixpkgs-master rather than the nixpkgs it pins and tests against.
+  # the hermes-agent MODULE now comes from upstream
+  # (hermes-agent.homeManagerModules.default) rather than a port in this repo.
+  # her flake must add that import alongside this file; the package keeps coming
+  # through extraSpecialArgs, because dollnet already has hermes-agent as a
+  # flake input for dahlia's system-level instance and reusing it keeps one copy
+  # of hermes-agent (and one nixpkgs) in the closure instead of two.
 
   imports = [
-    ../hermes-agent.nix
     ../home-server.nix
   ];
 
@@ -80,9 +78,16 @@
     #      each tailnet's view -- 100.80.221.70 in its own, 100.95.51.7 from
     #      luna. an IP resolved on the box is simply wrong for remote peers; the
     #      dns name resolves correctly from both sides.
+    #
+    # NOTE: this repo's old module had `backend.hostname`, which polled until the
+    # name resolved before binding. upstream has no equivalent yet, so the unit
+    # binds immediately and uvicorn fails if tailscaled has not come up. it is
+    # self-healing rather than clean -- Restart=on-failure retries until the name
+    # resolves -- so expect a few failed starts in the journal after a reboot.
+    # port the wait upstream and this note goes away.
     backend = {
       mode = "dashboard";
-      hostname = "dollnet.giraffa-richter.ts.net";
+      host = "dollnet.giraffa-richter.ts.net";
       port = 9119;
     };
 

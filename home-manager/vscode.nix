@@ -49,32 +49,28 @@
         mark-wiemer.vscode-autohotkey-plus-plus
       ];
 
-      userSettings =
-        let
-          monoFont = (import ./font.nix).mono;
-        in
-        {
-          "window.titleBarStyle" = "native";
-          "files.autoSave" = "afterDelay";
-          "files.autoSaveDelay" = 150;
-          "editor.multiCursorLimit" = 50000;
-          "window.menuBarVisibility" = "toggle";
-          "editor.inlayHints.enabled" = "offUnlessPressed";
-          "editor.formatOnSave" = true;
-          "typescript.tsserver.experimental.enableProjectDiagnostics" = true;
-          "update.mode" = "none";
-          # rip out all the builtin ai chat/copilot stuff
-          "chat.disableAIFeatures" = true;
-          "chat.commandCenter.enabled" = false;
-          "rust-analyzer.check.command" = "clippy";
-          "python.analysis.typeCheckingMode" = "basic";
-          "nix.enableLanguageServer" = true;
-          "nix.serverPath" = "nixd";
+      userSettings = {
+        "window.titleBarStyle" = "native";
+        "files.autoSave" = "afterDelay";
+        "files.autoSaveDelay" = 150;
+        "editor.multiCursorLimit" = 50000;
+        "window.menuBarVisibility" = "toggle";
+        "editor.inlayHints.enabled" = "offUnlessPressed";
+        "editor.formatOnSave" = true;
+        "typescript.tsserver.experimental.enableProjectDiagnostics" = true;
+        "update.mode" = "none";
+        # rip out all the builtin ai chat/copilot stuff
+        "chat.disableAIFeatures" = true;
+        "chat.commandCenter.enabled" = false;
+        "rust-analyzer.check.command" = "clippy";
+        "python.analysis.typeCheckingMode" = "basic";
+        "nix.enableLanguageServer" = true;
+        "nix.serverPath" = "nixd";
 
-          "editor.fontFamily" = "'${monoFont}', monospace";
-          "editor.fontLigatures" = false;
-          "terminal.integrated.fontFamily" = "'${monoFont}'";
-        };
+        # Fonts come from stylix's vscode target, which sets the whole family
+        # of *.fontFamily/*.fontSize keys from stylix.fonts.monospace.
+        "editor.fontLigatures" = false;
+      };
     };
   };
 }
