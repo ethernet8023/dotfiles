@@ -26,7 +26,9 @@
       fido2-hid-bridge = followsNixpkgs "github:arilotter/fido2-hid-bridge-flake";
       fw-inputmodule = followsNixpkgs "github:caffineehacker/nix?dir=flakes/inputmodule-rs";
       # nixvim = followsNixpkgs "github:nix-community/nixvim";
-      stylix = followsNixpkgs "github:nix-community/stylix";
+      # The base16 scheme library, used directly by home-manager/schemes.nix.
+      # No followsNixpkgs: base16.nix takes no nixpkgs input.
+      base16.url = "github:SenchoPens/base16.nix";
       # nixcord takes TWO nixpkgs: `nixpkgs` for the module and a separately
       # pinned `nixpkgs-nixcord` it builds vencord/vesktop from. followsNixpkgs
       # only redirects the first, so the second is set explicitly -- otherwise
@@ -54,7 +56,6 @@
       home-manager,
       agenix,
       fido2-hid-bridge,
-      stylix,
       ...
     }@inputs:
     let
@@ -85,7 +86,6 @@
         }
       ];
       graphical-modules = base-modules ++ [
-        stylix.nixosModules.stylix
         ./nixos/graphical-configuration.nix
         {
           # home-graphical.nix pulls in home.nix itself
@@ -135,11 +135,10 @@
         dollnet = ./home-manager/hosts/dollnet.nix;
         server = ./home-manager/home-server.nix;
 
-        # Stylix target for hermes-agent: generates a Hermes skin from the
-        # active base16 scheme and selects it. Import alongside upstream's
-        # `homeManagerModules.default` and stylix's own home module; it is inert
-        # unless both stylix and services.hermes-agent are enabled.
-        stylix-hermes-agent = ./home-manager/stylix-hermes-agent.nix;
+        # Generates a Hermes skin from the active base16 scheme and selects
+        # it. Import alongside upstream's `homeManagerModules.default`; inert
+        # unless services.hermes-agent is enabled.
+        hermes-agent-skin = ./home-manager/hermes-agent-skin.nix;
       };
 
       # NixOS modules importable by other flakes. same principle as homeModules:

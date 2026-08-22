@@ -1,6 +1,19 @@
-{ pkgs, lib, ... }:
+{
+  pkgs,
+  lib,
+  config,
+  inputs,
+  ...
+}:
 let
   ffAddons = pkgs.nur.repos.rycee.firefox-addons;
+
+  # The chrome alpha, as a percentage for color-mix. Reuses the same knob every
+  # other translucent surface here reads, so one number moves the terminal, the
+  # shell panels and the browser together.
+  opacityPct = toString (builtins.floor ((import ./opacity.nix).applications * 100.0 + 0.5));
+
+  colors = (import ./schemes.nix { inherit pkgs inputs; }).dark;
 
   # addon -> extra ExtensionSettings keys. private_browsing is emitted only
   # where listed: an explicit false revokes access and greys out the toggle,
@@ -12,6 +25,11 @@ let
     refined-github = { };
     vimium = { };
     user-agent-string-switcher = { };
+    # Applies the palette noctalia pushes over native messaging. The extension
+    # is required, not optional: noctalia's firefox-theme post action generates
+    # a manifest that allows exactly this addon id, so without it the host has
+    # nothing to talk to. See the user.firefox template in noctalia.nix.
+    pywalfox = { };
   };
 
   # rycee's addon packages drop exactly one xpi, named after the addon id,
@@ -79,8 +97,56 @@ in
           #back-button, #forward-button {
             display: none;
           }
+
+          /* Translucent chrome, so hyprland's blur has something to work on.
+             Firefox paints its own opaque backgrounds over the toolbox, so
+             every layer down to the window root has to be cleared before the
+             alpha below is visible -- clearing only :root leaves the toolbars
+             solid. */
+          :root,
+          #main-window,
+          #navigator-toolbox,
+          #toolbar-menubar,
+          #TabsToolbar,
+          #nav-bar,
+          #PersonalToolbar,
+          #urlbar-background {
+            background-color: transparent !important;
+          }
+
+          /* Colour comes from --lwt-accent-color, which is whatever the active
+             theme set -- pywalfox rewrites it on every mode toggle (see the
+             user.firefox template in noctalia.nix). Mixing it toward
+             `transparent` adds the alpha without pinning a hex here, so this
+             block stays correct in both light and dark. Only the ALPHA is ours;
+             the colour is the theme's. */
+          #navigator-toolbox {
+            background-color: color-mix(
+              in srgb,
+              var(--lwt-accent-color, ${colors.withHashtag.base00}) ${opacityPct}%,
+              transparent
+            ) !important;
+          }
+
+          /* The page itself stays opaque: a translucent viewport makes every
+             site with its own background unreadable. This is the browser
+             CHROME only. */
+          #tabbrowser-tabbox {
+            background-color: var(--lwt-accent-color, ${colors.withHashtag.base00}) !important;
+          }
         '';
         settings = {
+          # Firefox tells the compositor which parts of its surface are fully
+          # opaque, and hyprland honours that hint by skipping the blur behind
+          # them -- so translucent CSS alone renders as flat black. Disabling
+          # the hint is what makes the alpha above actually composite.
+          #
+          # Verified present in this Firefox: the pref is in libxul of
+          # firefox-153.0.4. (`browser.tabs.allow_transparent_browser` and
+          # `widget.wayland.transparent-windows`, which circulate in guides for
+          # this, are Zen-browser forks' prefs and do not exist here.)
+          "widget.wayland.opaque-region.enabled" = false;
+
           "extensions.autoDisableScopes" = 0;
           "browser.tabs.animate" = false;
           "browser.ml.linkPreview.enabled" = false;
@@ -117,10 +183,6 @@ in
       };
     };
   };
-
-  # stylix cannot discover firefox profiles on its own, and silently skips
-  # theming without this. Matches the `default` profile declared above.
-  stylix.targets.firefox.profileNames = [ "default" ];
 
   xdg.mimeApps.defaultApplications = {
     "text/html" = [ "firefox.desktop" ];

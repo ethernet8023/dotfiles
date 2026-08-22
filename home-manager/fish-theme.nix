@@ -1,7 +1,7 @@
 # Fish colours that follow the light/dark toggle.
 #
-# stylix's fish target is switched off here, and this replaces it. That target
-# sources base16-fish and calls `base16-<slug>`, which does two harmful things
+# Replaces an earlier stylix fish target, which sourced base16-fish and called
+# `base16-<slug>`. That did two harmful things
 # on this setup:
 #
 #   1. It emits OSC 4 / OSC 10 / OSC 11 escapes that reprogram the terminal's
@@ -28,7 +28,9 @@
   ...
 }:
 let
-  lightColors = import ./base16-light.nix { inherit pkgs inputs; };
+  schemes = import ./schemes.nix { inherit pkgs inputs; };
+  darkColors = schemes.dark;
+  lightColors = schemes.light;
 
   # Base16 role -> fish colour variable. Mirrors the mapping base16-fish uses,
   # so the palette matches what the rest of the system shows, and both variants
@@ -67,7 +69,7 @@ let
     colors:
     lib.concatStringsSep "\n" (lib.mapAttrsToList (name: value: "${name} ${value}") (mkVariant colors));
 
-  themeName = "stylix-auto";
+  themeName = "base16-auto";
 
   # `# name:` and `# preferred_background:` are the comments fish's own theme
   # format uses; the web config tool reads them.
@@ -79,24 +81,22 @@ let
   # empty there, so the shell renders with no highlighting at all. Dark is the
   # better guess for this setup, so [unknown] repeats the dark variant.
   themeFile = pkgs.writeText "${themeName}.theme" ''
-    # name: 'Stylix Auto'
+    # name: 'Base16 Auto'
 
     [light]
     # preferred_background: ${lightColors.base00}
     ${renderVariant lightColors}
 
     [dark]
-    # preferred_background: ${config.lib.stylix.colors.base00}
-    ${renderVariant config.lib.stylix.colors}
+    # preferred_background: ${darkColors.base00}
+    ${renderVariant darkColors}
 
     [unknown]
-    ${renderVariant config.lib.stylix.colors}
+    ${renderVariant darkColors}
   '';
 in
 {
   # See the header: this target actively fights ghostty's palette.
-  stylix.targets.fish.enable = false;
-
   xdg.configFile."fish/themes/${themeName}.theme".source = themeFile;
 
   programs.fish.interactiveShellInit = ''
@@ -109,10 +109,10 @@ in
     # --entire is required: without it `string match --regex` returns the
     # matched PORTION of each name ("fish_color_") rather than the name itself,
     # so the loop erases a variable that does not exist and reports success.
-    for __stylix_color in (set --names --universal | string match --entire --regex '^fish_(pager_)?color_')
-      set --erase --universal $__stylix_color
+    for __theme_color in (set --names --universal | string match --entire --regex '^fish_(pager_)?color_')
+      set --erase --universal $__theme_color
     end
-    set --erase __stylix_color
+    set --erase __theme_color
 
     # Applies the variant matching $fish_terminal_color_theme, and re-applies it
     # whenever that variable changes -- so a mode toggle repaints live shells

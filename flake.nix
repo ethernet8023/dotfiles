@@ -9,6 +9,7 @@
       inputs.nixpkgs.follows = "nixpkgs";
       url = "github:ryantm/agenix";
     };
+    base16.url = "github:SenchoPens/base16.nix";
     fido2-hid-bridge = {
       inputs.nixpkgs.follows = "nixpkgs";
       url = "github:arilotter/fido2-hid-bridge-flake";
@@ -54,10 +55,6 @@
     nur = {
       inputs.nixpkgs.follows = "nixpkgs";
       url = "github:nix-community/NUR";
-    };
-    stylix = {
-      inputs.nixpkgs.follows = "nixpkgs";
-      url = "github:nix-community/stylix";
     };
     vscode-ext = {
       inputs.nixpkgs.follows = "nixpkgs";

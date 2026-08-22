@@ -1,15 +1,13 @@
-# Stylix target for Hermes Agent.
+# Hermes Agent skin.
 #
 # Hermes themes every surface it has -- CLI, Ink TUI, and the Electron desktop
 # app -- from one YAML "skin" in $HERMES_HOME/skins/, selected by `display.skin`
-# in config.yaml. That is a good fit for stylix: one palette in, all three
-# surfaces repaint.
+# in config.yaml. One palette in, all three surfaces repaint.
 #
-# This is an out-of-tree target. Stylix has no hermes-agent module upstream, so
-# it is written against `config.lib.stylix.mkEnableTarget` and gated the same way
-# stylix's own targets are, which means it picks up `stylix.enable`,
-# `stylix.autoEnable`, and the usual `stylix.targets.hermes-agent.enable`
-# override without special-casing.
+# A skin is single-mode by contract, so this is the DARK half only; the desktop
+# app gets a real light/dark pair from hermes-desktop-theme.nix. This was a
+# stylix target until stylix was removed (.hermes/plans/remove-stylix.md); the
+# option now lives at `theming.hermes-agent`.
 #
 # Pairs with ./hermes-agent.nix, whose activation script owns $HERMES_HOME.
 # Skins are written through home.file rather than that script because a skin is
@@ -21,22 +19,25 @@
   config,
   lib,
   pkgs,
+  inputs,
   ...
 }:
 
 let
-  cfg = config.stylix.targets.hermes-agent;
+  cfg = config.theming.hermes-agent;
   hermesCfg = config.services.hermes-agent;
 
-  inherit (config.lib.stylix) colors;
+  colors = (import ./schemes.nix { inherit pkgs inputs; }).dark;
 
-  skinName = "stylix";
+  # Also the filename in $HERMES_HOME/skins/ and the value written to
+  # display.skin, all from this one string.
+  skinName = "base16";
 
   # Hermes resolves a skin against the built-in `default`, but only for keys the
   # default itself defines -- and several documented keys (ui_tool, ui_thinking,
   # ui_text, the syntax_* and diff_* families) are absent from it, falling back
   # at render time to whatever the renderer picked. Setting every key here keeps
-  # the palette under stylix's control instead of half-inherited from Hermes gold.
+  # the palette under our control instead of half-inherited from Hermes gold.
   mkPalette =
     c: with c; {
       background = base00;
@@ -107,7 +108,7 @@ let
 
   skin = {
     name = skinName;
-    description = "Generated from the active stylix base16 scheme";
+    description = "Generated from the active base16 scheme";
     colors = mkPalette colors.withHashtag;
   }
   // lib.optionalAttrs (cfg.extraConfig != { }) cfg.extraConfig;
@@ -115,23 +116,25 @@ let
   skinFile = (pkgs.formats.yaml { }).generate "hermes-skin-${skinName}.yaml" skin;
 in
 {
-  options.stylix.targets.hermes-agent = {
-    enable = config.lib.stylix.mkEnableTarget "Hermes Agent" true;
+  options.theming.hermes-agent = {
+    enable = lib.mkEnableOption "the generated Hermes Agent skin" // {
+      default = true;
+    };
 
     accentColor = lib.mkOption {
       type = lib.types.str;
       default = colors.withHashtag.base0D;
-      defaultText = lib.literalExpression "config.lib.stylix.colors.withHashtag.base0D";
+      defaultText = lib.literalExpression "the dark scheme's base0D";
       description = ''
         Colour used for accents: headings, links, tool-call markers, the
         response border and the session label.
 
-        base16 has no accent slot, so stylix targets pick one by meaning and
-        base0D ("functions, methods, headings") is the conventional choice.
+        base16 has no accent slot, so one is picked by meaning: base0D
+        ("functions, methods, headings") is the conventional choice.
         Point this at another slot to match a shell or bar accent that does not
         follow the same convention.
       '';
-      example = lib.literalExpression "config.lib.stylix.colors.withHashtag.base07";
+      example = "#b4befe";
     };
 
     extraConfig = lib.mkOption {
@@ -154,7 +157,7 @@ in
     };
   };
 
-  config = lib.mkIf (config.stylix.enable && cfg.enable && hermesCfg.enable) {
+  config = lib.mkIf (cfg.enable && hermesCfg.enable) {
     # home.file paths are relative to the home directory, so a hermesHome
     # outside it cannot be expressed here. removePrefix would silently no-op and
     # produce an absolute key, which home-manager writes to the wrong place.
@@ -162,13 +165,13 @@ in
       {
         assertion = lib.hasPrefix "${config.home.homeDirectory}/" hermesCfg.hermesHome;
         message = ''
-          stylix: hermes-agent: services.hermes-agent.hermesHome
+          theming: hermes-agent: services.hermes-agent.hermesHome
           (${hermesCfg.hermesHome}) is outside home.homeDirectory
           (${config.home.homeDirectory}), so the generated skin cannot be placed
           with home.file.
 
           Move hermesHome under the home directory, or set
-          `stylix.targets.hermes-agent.enable = false` and install the skin
+          `theming.hermes-agent.enable = false` and install the skin
           yourself.
         '';
       }
@@ -195,7 +198,8 @@ in
     # up a skin whose name is that attrset. To use a different skin, turn this
     # target off:
     #
-    #   stylix.targets.hermes-agent.enable = false;
+    #   theming.hermes-agent.enable = false;
     services.hermes-agent.settings.display.skin = skinName;
   };
+
 }

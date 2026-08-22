@@ -2,12 +2,17 @@
   config,
   pkgs,
   lib,
+  inputs,
   ...
 }:
 let
   h = import ./hyprland-helpers.nix { inherit lib; };
 
   mod = "SUPER";
+
+  # Colours an external target used to inject. noctalia.nix overrides
+  # col.active_border with the lavender accent; these are the rest.
+  colors = (import ./schemes.nix { inherit pkgs inputs; }).dark;
 in
 {
   home.sessionVariables = {
@@ -49,6 +54,7 @@ in
           gaps_out = 10;
           border_size = 2;
           layout = "dwindle";
+          "col.inactive_border" = "rgb(${colors.base03})";
         };
 
         decoration = {
@@ -59,7 +65,7 @@ in
             enabled = true;
             range = 4;
             render_power = 3;
-            # colour comes from stylix's hyprland target (base00 at 99 alpha)
+            color = "rgba(${colors.base00}99)";
           };
 
           blur = {
@@ -74,8 +80,8 @@ in
             # vibrancy pushes saturation back into the blurred backdrop, which
             # is what stops a blur over a colourful wallpaper reading as flat
             # grey. vibrancy_darkness applies it to dark areas too.
-            vibrancy = 0.4;
-            vibrancy_darkness = 0.5;
+            vibrancy = 0.7;
+            vibrancy_darkness = 0.6;
 
             # The default contrast of 0.8916 crushes an already dark
             # catppuccin-mocha surface; lift both so the frosted layer stays
@@ -117,6 +123,7 @@ in
         };
 
         misc = {
+          background_color = "rgb(${colors.base00})";
           disable_hyprland_logo = true;
           disable_splash_rendering = true;
           mouse_move_enables_dpms = true;
@@ -257,6 +264,17 @@ in
       ];
 
       window_rule = [
+        # Firefox draws translucent chrome (firefox.nix), but a surface it
+        # reports as fully opaque gets occlusion-culled: hyprland skips
+        # rendering what is behind it, and the translucent parts come out
+        # black. An opacity just under 1 opts the window out of that
+        # optimisation without a visible change of its own -- the alpha that
+        # matters is in the CSS. This is the workaround hyprland's own
+        # maintainer gives for the case (hyprwm/Hyprland#3049).
+        {
+          match.class = "^(firefox)$";
+          opacity = "0.99 override 0.99 override 1.0 override";
+        }
         {
           match.class = "^(pavucontrol)$";
           float = true;

@@ -5,7 +5,6 @@
 }:
 {
   imports = [
-    inputs.stylix.homeModules.stylix
     inputs.noctalia.homeModules.default
     inputs.noctalia-appmenu.homeManagerModules.default
     inputs.nixcord.homeModules.nixcord
@@ -18,10 +17,13 @@
     ./vscode.nix
     # ./neovim.nix
 
-    ./stylix.nix
-    ./stylix-hermes-agent.nix
+    ./hermes-agent-skin.nix
+    ./hermes-desktop-theme.nix
     ./noctalia.nix
     ./fish-theme.nix
+    ./fonts.nix
+    ./cursors.nix
+    ./gtk-qt.nix
   ];
 
   home.packages = with pkgs; [
@@ -54,58 +56,64 @@
   ];
 
   # Discord, via nixcord: it manages vesktop (the client) plus vencord (the mod)
-  # declaratively, and stylix themes it through modules/discord/.
+  # declaratively. The theme is written below.
   programs.nixcord = {
     enable = true;
     vesktop.enable = true;
     discord.enable = false;
   };
 
-  # The light half of the Discord theme.
+  # Discord's theme, both halves, written straight to vesktop's theme dir --
+  # the same place stylix's nixcord target wrote it, minus stylix.
   #
-  # stylix's discord target emits one :root block of --base00..--base0F from
-  # the single scheme it carries, and every rule after it is written in terms
-  # of those variables (modules/discord/common/color-theme.nix). So re-stating
-  # just the sixteen inside a media query repaints the whole client, with no
-  # need to duplicate the several hundred mappings.
+  # The colour mapping is vendored (./vendor/discord-color-theme.nix): it emits
+  # one :root block of --base00..--base0F and writes every later rule in terms
+  # of those sixteen. So appending a media query that restates just the sixteen
+  # repaints the entire client, with no need to duplicate the mappings.
   #
   # This needs no hook, unlike ghostty: vesktop is Electron, which resolves
   # prefers-color-scheme from the appearance portal live. Verified against
   # Electron 43 (vesktop's own) on this machine -- portal prefer-light gave
   # `matchMedia('(prefers-color-scheme: dark)').matches == false`, and
   # prefer-dark gave true, so the query tracks a toggle with no restart.
-  #
-  # stylix appends extraCss after its own body, so this block wins on order.
-  stylix.targets.nixcord.extraCss =
+  xdg.configFile."vesktop/themes/base16.theme.css".text =
     let
-      c = (import ./base16-light.nix { inherit pkgs inputs; }).withHashtag;
+      schemes = import ./schemes.nix { inherit pkgs inputs; };
+      c = schemes.light.withHashtag;
+      mkTheme = import ./vendor/discord-color-theme.nix;
     in
     ''
+      /**
+      * @name Base16
+      * @author home-manager
+      * @version 0.0.0
+      * @description Theme configured via Home Manager.
+      **/
+    ''
+    + mkTheme schemes.dark
+    + ''
 
       @media (prefers-color-scheme: light) {
           :root {
-              --base00: ${c.base00}; /* Black */
-              --base01: ${c.base01}; /* Bright Black */
-              --base02: ${c.base02}; /* Grey */
-              --base03: ${c.base03}; /* Brighter Grey */
-              --base04: ${c.base04}; /* Bright Grey */
-              --base05: ${c.base05}; /* White */
-              --base06: ${c.base06}; /* Brighter White */
-              --base07: ${c.base07}; /* Bright White */
-              --base08: ${c.base08}; /* Red */
-              --base09: ${c.base09}; /* Orange */
-              --base0A: ${c.base0A}; /* Yellow */
-              --base0B: ${c.base0B}; /* Green */
-              --base0C: ${c.base0C}; /* Cyan */
-              --base0D: ${c.base0D}; /* Blue */
-              --base0E: ${c.base0E}; /* Purple */
-              --base0F: ${c.base0F}; /* Magenta */
+              --base00: ${c.base00};
+              --base01: ${c.base01};
+              --base02: ${c.base02};
+              --base03: ${c.base03};
+              --base04: ${c.base04};
+              --base05: ${c.base05};
+              --base06: ${c.base06};
+              --base07: ${c.base07};
+              --base08: ${c.base08};
+              --base09: ${c.base09};
+              --base0A: ${c.base0A};
+              --base0B: ${c.base0B};
+              --base0C: ${c.base0C};
+              --base0D: ${c.base0D};
+              --base0E: ${c.base0E};
+              --base0F: ${c.base0F};
           }
       }
     '';
 
-  programs.fish.shellAliases = {
-    pbpaste = "wl-paste";
-    pbcopy = "wl-copy";
-  };
+  programs.nixcord.config.enabledThemes = [ "base16.theme.css" ];
 }

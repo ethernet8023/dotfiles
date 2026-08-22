@@ -1,28 +1,24 @@
 {
   pkgs,
-  lib,
   inputs,
   ...
 }:
 let
-  lightColors = import ./base16-light.nix { inherit pkgs inputs; };
-in
-{
-  programs.ghostty = {
-    enable = true;
-    enableFishIntegration = true;
+  schemes = import ./schemes.nix { inherit pkgs inputs; };
+  fonts = import ./font.nix;
+  opacity = import ./opacity.nix;
 
-    # The light half of the terminal theme. stylix's ghostty target writes
-    # `themes.stylix` from the one scheme it carries, which is the dark one, so
-    # a reload after a mode toggle re-reads identical colours and appears to do
-    # nothing. This is the same block from stylix's modules/ghostty/hm.nix, fed
-    # the latte scheme instead.
-    themes.stylix-light = with lightColors.withHashtag; {
-      background = lightColors.base00;
-      foreground = lightColors.base05;
-      cursor-color = lightColors.base05;
-      selection-background = lightColors.base02;
-      selection-foreground = lightColors.base05;
+  # Both halves of the terminal theme, from one mapping so they cannot drift.
+  # This is the block stylix's modules/ghostty/hm.nix built, inlined here when
+  # stylix was removed -- the base16 slot assignment is base16's convention, not
+  # stylix's, so it carries over unchanged.
+  mkTheme =
+    colors: with colors.withHashtag; {
+      background = colors.base00;
+      foreground = colors.base05;
+      cursor-color = colors.base05;
+      selection-background = colors.base02;
+      selection-foreground = colors.base05;
 
       palette = [
         "0=${base00}"
@@ -43,13 +39,28 @@ in
         "15=${base07}"
       ];
     };
+in
+{
+  programs.ghostty = {
+    enable = true;
+    enableFishIntegration = true;
+
+    # Named `stylix`/`stylix-light` no longer, but the names are still just
+    # labels the `theme` setting below refers to.
+    themes = {
+      dark = mkTheme schemes.dark;
+      light = mkTheme schemes.light;
+    };
 
     settings = {
       gtk-titlebar = false;
       # matches hyprland's inter-window gap (gaps_in = 5 per edge => 10 visible)
       window-padding-x = 10;
       window-padding-y = 10;
-      font-family = (import ./font.nix).mono;
+
+      font-family = fonts.mono;
+      font-size = fonts.sizes.terminal;
+      background-opacity = opacity.terminal;
 
       # Ghostty resolves a `light:,dark:` pair against the desktop colour
       # scheme, but only while READING its config -- it does not repaint when
@@ -58,10 +69,7 @@ in
       # window redrew as latte #E0E2EC the moment it got SIGUSR2. So the pair
       # below picks the right half at startup and at every reload, and
       # noctalia.nix sends that reload on a mode toggle.
-      #
-      # mkForce because stylix's ghostty target sets `theme = "stylix"` from its
-      # single scheme. That name is still the dark half below.
-      theme = lib.mkForce "dark:stylix,light:stylix-light";
+      theme = "dark:dark,light:light";
 
       # Home-manager gives the ghostty user unit an X-Reload-Triggers listing
       # the config and every theme file, so a switch that changes any of them
