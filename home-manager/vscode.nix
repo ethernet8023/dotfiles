@@ -41,11 +41,6 @@ in
       extensions = (
         with pkgs.vscode-marketplace;
         [
-          # Ships every catppuccin flavour as a separate theme, so the two
-          # halves of the light/dark toggle come from one upstream extension
-          # instead of a generated one. Replaced the stylix-built theme, which
-          # only ever carried a single scheme.
-          catppuccin.catppuccin-vsc
           bierner.markdown-mermaid
           ms-vscode-remote.remote-containers
           semanticdiff.semanticdiff
@@ -74,6 +69,23 @@ in
           ms-vsliveshare.vsliveshare
           github.vscode-pull-request-github
           mark-wiemer.vscode-autohotkey-plus-plus
+        ]
+        ++ [
+          # Ships every catppuccin flavour as a separate theme, so the two
+          # halves of the light/dark toggle come from one upstream extension
+          # instead of a generated one. Replaced the stylix-built theme, which
+          # only ever carried a single scheme.
+          #
+          # From nixpkgs rather than `pkgs.vscode-marketplace`, which is pinned
+          # at 2.1.1. That build wrote `editor.lineHighlightBackground` and
+          # `editorOverviewRuler.border` as `#rrggbb` plus ONE alpha digit
+          # (`#cdd6f4c` for mocha). VS Code's parseHex accepts lengths 4, 5, 7
+          # and 9 only and returns null for anything else, and Color.fromHex is
+          # `parseHex(x) || Color.red` -- so an 8-character value paints the
+          # current line and the ruler border opaque red. Upstream zero-pads it
+          # now: 3.19.0 writes `#cdd6f412`, which is the intended alpha of 0.07
+          # (0x12 = 18 = round(0.07 * 255)).
+          pkgs.vscode-extensions.catppuccin.catppuccin-vsc
         ]
       );
 
