@@ -64,9 +64,30 @@ in
 
           blur = {
             enabled = true;
-            size = 3;
-            passes = 2;
-            vibrancy = 0.1696;
+            # A macOS-style pane is a wide, soft blur rather than a tight one.
+            # Radius grows roughly as size * 2^passes, so 8/3 is a far larger
+            # kernel than 3/2 at a similar cost, because each extra pass runs
+            # on a half-resolution buffer.
+            size = 8;
+            passes = 3;
+
+            # vibrancy pushes saturation back into the blurred backdrop, which
+            # is what stops a blur over a colourful wallpaper reading as flat
+            # grey. vibrancy_darkness applies it to dark areas too.
+            vibrancy = 0.4;
+            vibrancy_darkness = 0.5;
+
+            # The default contrast of 0.8916 crushes an already dark
+            # catppuccin-mocha surface; lift both so the frosted layer stays
+            # readable. noise keeps a wide blur from banding.
+            brightness = 1.1;
+            contrast = 1.1;
+            noise = 0.02;
+
+            # Panels and menus are child surfaces, and are not blurred by
+            # default even when their parent is.
+            popups = true;
+            special = true;
           };
         };
 
@@ -158,6 +179,7 @@ in
         (h.bind (h.key mod "N") (h.exec "noctalia msg panel-toggle control-center"))
         (h.bind (h.key mod "V") (h.exec "noctalia msg panel-toggle clipboard"))
         (h.bind (h.key mod "L") (h.exec "noctalia msg session lock"))
+        (h.bind (h.key mod "T") (h.exec "noctalia msg theme-mode-toggle"))
         (h.bind (h.key "${mod} + SHIFT" "E") (h.exec "noctalia msg panel-toggle session"))
 
         # screenshots

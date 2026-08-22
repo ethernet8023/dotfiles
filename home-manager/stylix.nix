@@ -30,6 +30,19 @@
     };
 
     image = ../wallpapers/succulents.jpg;
+
+    # Hyprland's blur only has an effect where a surface is translucent: it
+    # blurs what is behind the alpha. With every surface opaque the two blur
+    # passes in hyprland.nix composite nothing. These are the alpha side of
+    # that pairing.
+    #
+    # `applications` is left opaque. Only zathura, emacs, zen-browser and
+    # mangohud read it here, and none of them are the glass surfaces wanted.
+    opacity = {
+      terminal = 0.85;
+      popups = 0.85;
+      desktop = 0.8;
+    };
   };
 
   # stylix's hyprland target turns on hyprpaper whenever stylix.image is set.
