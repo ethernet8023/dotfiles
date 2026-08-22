@@ -43,6 +43,7 @@
       hermes-agent.url = "github:NousResearch/hermes-agent";
       vscode-server.url = "github:nix-community/nixos-vscode-server";
       noctalia = followsNixpkgs "github:noctalia-dev/noctalia";
+      noctalia-appmenu = followsNixpkgs "github:yolo-labz/noctalia-appmenu";
     };
 
   outputs =

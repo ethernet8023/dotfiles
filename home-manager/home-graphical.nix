@@ -7,6 +7,7 @@
   imports = [
     inputs.stylix.homeModules.stylix
     inputs.noctalia.homeModules.default
+    inputs.noctalia-appmenu.homeManagerModules.default
     inputs.nixcord.homeModules.nixcord
     inputs.hermes-agent.homeManagerModules.default
     ./home.nix

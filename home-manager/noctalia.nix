@@ -208,6 +208,7 @@ in
       wallpaper.enabled = true;
     };
   };
+  programs.noctalia.plugins.appmenu.enable = true;
 
   # The window border follows base0D for the same reason the shell's primary
   # did; point it at the same accent so the frame matches the bar.

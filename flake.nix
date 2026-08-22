@@ -47,6 +47,10 @@
       inputs.nixpkgs.follows = "nixpkgs";
       url = "github:noctalia-dev/noctalia";
     };
+    noctalia-appmenu = {
+      inputs.nixpkgs.follows = "nixpkgs";
+      url = "github:yolo-labz/noctalia-appmenu";
+    };
     nur = {
       inputs.nixpkgs.follows = "nixpkgs";
       url = "github:nix-community/NUR";

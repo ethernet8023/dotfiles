@@ -76,4 +76,7 @@
     tex-gyre.heros
     nerd-fonts.mononoki
   ];
+
+  # for noctalia-appmenu
+  services.gnome.at-spi2-core.enable = true;
 }
