@@ -79,15 +79,14 @@
     #      luna. an IP resolved on the box is simply wrong for remote peers; the
     #      dns name resolves correctly from both sides.
     #
-    # NOTE: this repo's old module had `backend.hostname`, which polled until the
-    # name resolved before binding. upstream has no equivalent yet, so the unit
-    # binds immediately and uvicorn fails if tailscaled has not come up. it is
-    # self-healing rather than clean -- Restart=on-failure retries until the name
-    # resolves -- so expect a few failed starts in the journal after a reboot.
-    # port the wait upstream and this note goes away.
+    # waitFor polls until the magicdns name resolves before binding. without it
+    # the unit races tailscaled at boot and uvicorn fails on the unresolvable
+    # name, and only Restart=on-failure eventually catches it (NousResearch/
+    # hermes-agent#91720).
     backend = {
       mode = "dashboard";
       host = "dollnet.giraffa-richter.ts.net";
+      waitFor = "hostname";
       port = 9119;
     };
 
