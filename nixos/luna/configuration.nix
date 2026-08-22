@@ -15,8 +15,9 @@ in
   home-manager.users.ethie.imports = [ ../../home-manager/hosts/luna.nix ];
 
   # Keep the systemd user manager running when no session is logged in, so the
-  # hermes-backend unit (hosts/luna.nix) survives logout and starts at boot.
-  # home-manager cannot set this itself -- it needs `loginctl enable-linger`.
+  # hermes-agent and hermes-backend units (hosts/luna.nix) survive logout and
+  # start at boot. home-manager cannot set this itself -- it needs
+  # `loginctl enable-linger`.
   users.users.${config.me.username}.linger = true;
 
   services.xserver = {
