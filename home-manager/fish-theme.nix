@@ -35,8 +35,18 @@ let
   # Base16 role -> fish colour variable. Mirrors the mapping base16-fish uses,
   # so the palette matches what the rest of the system shows, and both variants
   # are generated from one table so they cannot drift apart.
+  #
+  # The colours are the bare `eff1f5` form, NOT `withHashtag`. A `.theme` file
+  # is read line by line with `read --tokenize`, which applies fish's own
+  # tokenizer, and there `#` starts a comment. So `fish_color_command #89b4fa`
+  # tokenizes to the single token `fish_color_command`, fish sets that variable
+  # to the empty value, and every highlight colour is lost -- the whole shell
+  # renders unhighlighted. Every theme fish ships writes bare hex for the same
+  # reason. `--background=${base02}` keeps its `#` safely, because the `#` is
+  # not at the start of a token there, but it is written bare too so the file
+  # holds one spelling.
   mkVariant =
-    colors: with colors.withHashtag; {
+    colors: with colors; {
       fish_color_normal = base05;
       fish_color_command = base0D;
       fish_color_keyword = base0E;
