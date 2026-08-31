@@ -1,15 +1,19 @@
-{ config, ... }:
+{ config, lib, ... }:
 {
-  # luna-specific home config: the desktop with two 4K monitors, both mounted
-  # physically portrait (transform 3, see ../hyprland.nix).
-  #
-  # Only differences from the shared graphical config belong here. Everything
-  # else comes from home-graphical.nix.
+  # luna-specific home config: the desktop with two 27" monitors, both mounted
+  # physically portrait -- a 4K on the right and a 1440p on the left.
 
-  # A bar down the long edge of a portrait monitor eats a lot of vertical
-  # space, and the short edge is cheap -- so run it along the bottom rather
-  # than the top like the laptop does.
   programs.noctalia.settings.bar.main.position = "bottom";
+
+  wayland.windowManager.hyprland.settings.device = lib.mkMerge [
+    [
+      {
+        name = "ploopy-corporation-ploopy-adept-trackball-mouse";
+        sensitivity = -1;
+        natural_scroll = true;
+      }
+    ]
+  ];
 
   # Hermes Agent. Upstream's home-manager module splits this in two, following
   # the home-manager convention: `programs.` installs things for me, `services.`

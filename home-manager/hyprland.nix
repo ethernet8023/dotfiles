@@ -111,6 +111,7 @@ in
           repeat_delay = 300;
           repeat_rate = 50;
           follow_mouse = 1;
+          force_no_accel = true;
           touchpad = {
             natural_scroll = true;
             scroll_factor = 0.3;
