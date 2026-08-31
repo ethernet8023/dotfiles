@@ -143,17 +143,29 @@ in
       ];
 
       monitor = [
+        # Both desktop panels are 27" mounted portrait (transform 3), and both
+        # end up 1440x2560 logical, so they sit side by side with no vertical
+        # offset and a window keeps its size when it crosses between them.
+        #
+        # The scales are what make that true, and they are not free choices:
+        # 27" 1440p is 109 DPI and 27" 4K is 163 DPI, exactly 1.5x, so scale
+        # 1.5 on the 4K and 1 on the 1440p render everything at the same
+        # physical size. 1.5 on the 1440p panel would not even be legal --
+        # 2560/1.5 is not an integer, and Hyprland quietly rounds a rejected
+        # scale to the nearest workable one (1.6) instead of failing.
         (h.monitor {
+          # left: Dell U2722D
           output = "DP-2";
-          mode = "3840x2160@60";
-          position = "1440x32";
-          scale = 1.5;
+          mode = "2560x1440@59.95";
+          position = "0x0";
+          scale = 1;
           transform = 3;
         })
         (h.monitor {
+          # right: Dell P2723QE
           output = "DP-1";
           mode = "3840x2160@60";
-          position = "0x0";
+          position = "1440x0";
           scale = 1.5;
           transform = 3;
         })
