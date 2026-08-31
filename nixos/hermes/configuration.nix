@@ -6,6 +6,9 @@
 {
   networking.hostName = "hermes";
 
+  services.power-profiles-daemon.enable = true;
+  services.upower.enable = true;
+
   # not yet migrated off the old homedir; everything under it is real.
   me = (import ../../hosts.nix).hermes;
 
