@@ -91,17 +91,25 @@ colors: ''
       --bg-surface-raised: var(--base02) !important;
       --bg-surface-overlay: var(--base00) !important;
       --black: var(--base00) !important;
-      --blurple-50: var(--base0B) !important;
+      # blurple is Discord's brand accent. The desktop's accent is lavender
+      # (base07) -- the same deliberate choice noctalia.nix makes for the
+      # shell's primary, window borders and the hermes skin, because the usual
+      # base0D is blue there. base0B (green) rendered accent buttons green.
+      --blurple-50: var(--base07) !important;
       --border-faint: var(--base02) !important;
       --brand-05a: var(--base01) !important;
       --brand-10a: var(--base01) !important;
       --brand-15a: var(--base01) !important;
-      --brand-260: var(--base0D) !important;
-      --brand-360: var(--base0D) !important;
-      --brand-500: var(--base0F) !important;
+      # The accent keys all follow base07 (lavender) -- the same accent the
+      # shell, window borders and hermes skin use (see noctalia.nix). base0D
+      # is blue there, which read as a second, competing accent; base0B
+      # (green) rendered accent buttons green.
+      --brand-260: var(--base07) !important;
+      --brand-360: var(--base07) !important;
+      --brand-500: var(--base07) !important;
       --brand-560: var(--base01) !important;
       --button-danger-background: var(--base08) !important;
-      --button-filled-brand-background: var(--base0D) !important;
+      --button-filled-brand-background: var(--base07) !important;
       --button-filled-brand-background-hover: var(--base03) !important;
       --button-filled-brand-text: var(--base00) !important;
       --button-filled-brand-text-hover: var(--base05) !important;
@@ -118,11 +126,11 @@ colors: ''
       --channel-text-area-placeholder: var(--base03) !important;
       --channeltextarea-background: var(--base01) !important;
       --chat-background-default: var(--base02) !important;
-      --checkbox-background-checked: var(--base0D) !important;
-      --checkbox-border-checked: var(--base0D) !important;
+      --checkbox-background-checked: var(--base07) !important;
+      --checkbox-border-checked: var(--base07) !important;
       --checkbox-background-default: var(--base02) !important;
       --checkbox-border-default: var(--base03) !important;
-      --control-brand-foreground-new: var(--base0D) !important;
+      --control-brand-foreground-new: var(--base07) !important;
       --control-brand-foreground: var(--base04) !important;
       --custom-notice-text: var(--base01) !important;
       --font-display: var(--font, "gg sans") !important;

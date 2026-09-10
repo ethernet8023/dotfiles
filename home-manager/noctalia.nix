@@ -139,6 +139,25 @@ in
     enable = true;
     systemd.enable = true;
 
+    # Upstream 5.0.0 races three interface writes on a mode toggle: the
+    # color-scheme gsettings write (syncGSettingsColorScheme, a detached
+    # subprocess) wins the spawn race and lands FIRST, with gtk-theme
+    # (template apply.sh) and cursor-theme (user hooks) landing ~20-50ms
+    # behind. Electron apps re-resolve prefers-color-scheme on the portal's
+    # SettingChanged, and a color-scheme write followed by rapid sibling
+    # writes makes their re-resolve read stale -- nativeTheme sticks on the
+    # old mode (beeper flashes then reverts, vscode/vesktop do nothing or lag
+    # one toggle). Bisected with an electron probe on this machine; see the
+    # patch header for the full causal trace. Writing color-scheme LAST
+    # (after template apply completes, via the after-apply callback) fixes
+    # it; the patch does the reorder in application_services.cpp. Drop this
+    # once upstream ships an equivalent fix.
+    package = inputs.noctalia.packages.${pkgs.system}.default.overrideAttrs (prev: {
+      patches = (prev.patches or [ ]) ++ [
+        ./../patches/noctalia-colorscheme-after-apply.patch
+      ];
+    });
+
     customPalettes.base16-accent = {
       dark = mkPalette darkColors;
       light = mkPalette lightColors;
@@ -195,10 +214,26 @@ in
           # id the generated manifest allows (kExtensionId in
           # src/theme/firefox_theme/firefox_theme.cpp). firefox.nix force-installs
           # it.
+          # output_path is NOT free here. The post action passes this path to
+          # applyFirefoxTheme, but the long-lived native-messaging host that
+          # actually answers the extension re-reads the palette from a path it
+          # hardcodes: $XDG_CACHE_HOME/wal/colors.json
+          # (defaultColorsJsonPath, firefox_theme.cpp:97-100, used by
+          # sendColors at :447). Rendering anywhere else leaves that file
+          # missing, the host replies with an error instead of a palette, and
+          # the extension never sets --lwt-accent-color -- so the userChrome
+          # rules in firefox.nix fall back to their hardcoded dark hex and the
+          # tab bar stays mocha in light mode.
+          #
+          # Measured on luna: with the template pointed at noctalia/, chrome
+          # rendered rgb(60,60,73) in light mode (= mocha #1e1e2e at 85%);
+          # writing the identical json to wal/colors.json made the same
+          # userChrome render rgb(218,218,218), and a dark toggle then landed
+          # rgb(30,30,46) live with no restart.
           user.firefox = {
             enabled = true;
             input_path = "${./noctalia-templates/firefox-colors.json}";
-            output_path = "${config.xdg.cacheHome}/noctalia/firefox-colors.json";
+            output_path = "${config.xdg.cacheHome}/wal/colors.json";
             post_action = "firefox-theme";
           };
         };

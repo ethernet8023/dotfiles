@@ -88,4 +88,17 @@ in
     openFirewall = true;
   };
   services.openssh.enable = true;
+
+  # Ploopy Adept Trackball: the sensor's true resolution (12000 CPI) is not
+  # advertised over HID and udev knows no hwdb entry for this device, so
+  # libinput falls back to its 1000-dpi default and normalizes every delta
+  # 12x too large -- all hyprland accel/sensitivity tuning then operates in
+  # the wrong coordinate system and the pointer feels absurdly fast no
+  # matter the profile. Fix the lie at the source: tell libinput the real
+  # DPI via the MOUSE_DPI property (format: resolution@frequency, see
+  # libinput docs/user/normalization-of-relative-motion.rst).
+  services.udev.extraHwdb = ''
+    evdev:input:b0003v5043p5C47*
+     MOUSE_DPI=12000@125
+  '';
 }

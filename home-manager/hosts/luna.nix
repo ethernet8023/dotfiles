@@ -9,7 +9,27 @@
     [
       {
         name = "ploopy-corporation-ploopy-adept-trackball-mouse";
-        sensitivity = -1;
+        # Custom accel profile: libinput IGNORES `sensitivity` under custom
+        # (set-speed has no effect), so the slowdown is baked into the points.
+        #
+        # The sensor's true resolution is 12000 CPI, told to libinput via the
+        # MOUSE_DPI hwdb rule in nixos/luna/configuration.nix. Before that
+        # rule existed, libinput assumed 1000 dpi and normalized every delta
+        # 12x oversized -- ALL accel/sensitivity tuning operated in the wrong
+        # coordinate system and felt absurdly fast no matter the profile. If
+        # tuning ever feels hopeless again, check `udevadm info -q property
+        # -n /dev/input/eventN | grep MOUSE_DPI` FIRST.
+        #
+        # "custom <step> <points...>": f(x) = output speed at input speed x,
+        # where x is RAW device units/ms (the custom profile bypasses libinput
+        # DPI normalization entirely — at 12000 CPI, real hand speeds land
+        # across x=0-30+ u/ms). This curve was sculpted BY HAND on 2026-09-03
+        # with a live visualizer + slider rig (hyprctl eval applies instantly,
+        # no rebuild/replug — use it to A/B before editing this file): gentle
+        # low ramp for precision, steady climb through the medium range,
+        # last-segment slope ((8-7.512)/2.2 ~= 0.22x) as the cruise factor.
+        accel_profile = "custom 2.2 0.010725455777575553 0.03481132427897955 0.10802142029952082 0.28513045152573563 0.6011738354029882 1.4118664540198298 1.986602780602482 2.314534020945035 2.745505250181486 2.9237747316656617 3.198709559996233 5.0133648028866045 6.624072807188476 6.744212988241895 7.512221021535088 8.000000000000004";
+        scroll_factor = 0.5;
         natural_scroll = true;
       }
     ]

@@ -1,0 +1,82 @@
+From: ethie <arilotter@gmail.com>
+Subject: [PATCH] Write color-scheme last in mode-toggle gsettings bursts
+
+See the body of each hunk for the measured mechanism. Bisected with an
+electron probe on Hyprland + xdg-desktop-portal-gtk: a color-scheme write
+followed by rapid sibling interface writes breaks live re-resolve of
+prefers-color-scheme in Electron apps; writing it last fixes it.
+
+--- a/src/app/application_services.cpp
++++ b/src/app/application_services.cpp
+@@ -648,9 +648,23 @@
+     lastResolvedThemeMode = resolvedMode;
+     const bool colorsChanged = !lastGeneratedPalette.has_value() || *lastGeneratedPalette != generated;
+     lastGeneratedPalette = generated;
+-    if (colorsChanged) {
+-      m_templateApplyService.setAfterApplyCallback([this]() { m_hookManager.fire(HookKind::ColorsChanged); });
+-    }
++    // The color-scheme gsettings write must land AFTER the template worker
++    // has written gtk-theme and after user hooks have written cursor-theme.
++    // Measured on Hyprland + xdg-desktop-portal-gtk with electron 41/43: a
++    // color-scheme write followed by rapid sibling interface writes breaks
++    // live re-resolve of prefers-color-scheme in Electron apps (nativeTheme
++    // sticks on the old mode; a fresh process reads correctly). Writing it
++    // last makes the live update work every time. The after-apply callback
++    // is the deterministic "template writes have landed" point: the worker
++    // fires it only after applyRequest() synchronously ran every hook.
++    // Set unconditionally: a mode-only toggle with an unchanged palette must
++    // still write color-scheme, or the portal answer goes stale.
++    m_templateApplyService.setAfterApplyCallback([this, colorsChanged]() {
++      if (colorsChanged) {
++        m_hookManager.fire(HookKind::ColorsChanged);
++      }
++      syncGSettingsColorScheme(m_themeService.resolvedMode());
++    });
+     m_templateApplyService.apply(generated, mode);
+     if (previousMode.has_value() && *previousMode != resolvedMode) {
+       m_hookManager.fire(
+@@ -660,7 +674,6 @@
+            {"NOCTALIA_THEME_MODE_CONFIGURED", configuredMode}}
+       );
+     }
+-    syncGSettingsColorScheme(resolvedMode);
+   });
+   m_themeService.apply();
+   syncGSettingsColorScheme(m_themeService.resolvedMode());
+--- a/assets/templates/gtk/apply.sh
++++ b/assets/templates/gtk/apply.sh
+@@ -83,23 +83,30 @@
+         local schemas
+         schemas=$(gsettings list-schemas 2>/dev/null || true)
+         if [[ "$schemas" == *"org.gnome.desktop.interface"* ]]; then
+-            gsettings set org.gnome.desktop.interface color-scheme "prefer-$mode" \
+-                || echo "Error running gsettings set color-scheme" >&2
++            # Write gtk-theme BEFORE color-scheme: Electron/Chromium re-resolves
++            # prefers-color-scheme when the portal emits SettingChanged for
++            # color-scheme, and a color-scheme write followed by rapid sibling
++            # interface writes makes that re-resolve read stale (nativeTheme
++            # sticks on the old mode). Writing color-scheme last in the burst
++            # -- after gtk-theme here and after any concurrent hook writes --
++            # makes live theme updates work in Electron apps.
+             if [ "$theme_available" = "true" ]; then
+                 gsettings set org.gnome.desktop.interface gtk-theme "$target_theme" \
+                     || echo "Error running gsettings set gtk-theme" >&2
+             fi
++            gsettings set org.gnome.desktop.interface color-scheme "prefer-$mode" \
++                || echo "Error running gsettings set color-scheme" >&2
+             return
+         fi
+     fi
+ 
+     if [ -n "$has_dconf" ]; then
+-        dconf write /org/gnome/desktop/interface/color-scheme "'prefer-$mode'" \
+-            || echo "Error running dconf write color-scheme" >&2
+         if [ "$theme_available" = "true" ]; then
+             dconf write /org/gnome/desktop/interface/gtk-theme "'$target_theme'" \
+                 || echo "Error running dconf write gtk-theme" >&2
+         fi
++        dconf write /org/gnome/desktop/interface/color-scheme "'prefer-$mode'" \
++            || echo "Error running dconf write color-scheme" >&2
+     fi
+ }
+ 

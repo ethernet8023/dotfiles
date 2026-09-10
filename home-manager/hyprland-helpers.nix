@@ -7,11 +7,8 @@
 let
   inherit (lib)
     concatMapStringsSep
-    concatStringsSep
     foldl'
     mergeAttrs
-    optionalAttrs
-    range
     ;
 
   inherit (lib.generators)
@@ -21,8 +18,45 @@ let
 
   # Default Lua serializer.
   lua = toLua { };
+
+  flags =
+    let
+      camelToSnake =
+        str:
+        let
+          chars = lib.strings.stringToCharacters str;
+          process =
+            acc: c: if builtins.match "[A-Z]" c != null then acc + "_" + lib.strings.toLower c else acc + c;
+        in
+        lib.foldl process "" chars;
+
+      mkFlags =
+        flagList:
+        builtins.listToAttrs (
+          map (flag: {
+            name = flag;
+            value = {
+              "${camelToSnake flag}" = true;
+            };
+          }) flagList
+        );
+    in
+    mkFlags [
+      "locked"
+      "repeating"
+      "release"
+      "longPress"
+      "mouse"
+      "click"
+      "drag"
+      "submapUniversal"
+      "ignoreMods"
+      "nonConsuming"
+    ];
+
 in
-rec {
+flags
+// rec {
   # -- home-manager structural shorthands --
   call = args: { _args = args; };
   var = name: value: {
@@ -30,47 +64,13 @@ rec {
     inherit name;
   };
 
-  # -- key strings --
-  key = mods: k: if mods == "" then k else "${mods} + ${k}";
-  noMod = key "";
-
   # -- flags (combine with flags [ locked repeating ... ]) --
   flags = foldl' mergeAttrs { };
-  locked = {
-    locked = true;
-  };
-  repeating = {
-    repeating = true;
-  };
-  release = {
-    release = true;
-  };
-  longPress = {
-    long_press = true;
-  };
-  mouse = {
-    mouse = true;
-  };
-  click = {
-    click = true;
-  };
-  dragFlag = {
-    drag = true;
-  };
-  submapUniversal = {
-    submap_universal = true;
-  };
-  ignoreMods = {
-    ignore_mods = true;
-  };
-  nonConsuming = {
-    non_consuming = true;
-  };
   device = { inclusive, list }: { device = { inherit inclusive list; }; };
   description = text: { description = text; };
 
-  # -- raw Lua snippets --
-  raw = mkLuaInline;
+  # -- raw Lua snippets: escape hatch, left completely untouched --
+  raw = lib.id;
 
   # -- startup / events --
   onEvent = event: commands: {
@@ -92,63 +92,69 @@ rec {
       end
     '';
 
-  # -- dispatchers (produce LuaInline expressions for hl.bind) --
-  exec = cmd: mkLuaInline "hl.dsp.exec_cmd(${lua cmd})";
-  execWithRules = cmd: rules: mkLuaInline "hl.dsp.exec_cmd(${lua cmd}, ${lua rules})";
-  execRaw = cmd: mkLuaInline "hl.dsp.exec_raw(${lua cmd})";
+  # -- dsp generators: hl.dsp.<path>(<arg>) / hl.dsp.<path>() --
+  # Every dispatcher below is one of these two shapes. Results are plain
+  # strings, not yet LuaInline -- see `wrap`.
+  dsp = path: arg: "hl.dsp.${path}(${lua arg})";
+  dsp0 = path: "hl.dsp.${path}()";
+
+  exec = dsp "exec_cmd";
+  execWithRules = cmd: rules: "hl.dsp.exec_cmd(${lua cmd}, ${lua rules})"; # two args, doesn't fit dsp
+  execRaw = dsp "exec_raw";
 
   focus = {
-    dir = d: mkLuaInline "hl.dsp.focus({ direction = ${lua d} })";
-    workspace = ws: mkLuaInline "hl.dsp.focus({ workspace = ${lua ws} })";
+    dir = dir: dsp "focus" { direction = dir; };
+    workspace = ws: dsp "focus" { workspace = ws; };
     workspaceOnCurrent =
-      ws: mkLuaInline "hl.dsp.focus({ workspace = ${lua ws}, on_current_monitor = true })";
-    window = w: mkLuaInline "hl.dsp.focus({ window = ${lua w} })";
-    monitor = m: mkLuaInline "hl.dsp.focus({ monitor = ${lua m} })";
-    last = mkLuaInline "hl.dsp.focus({ last = true })";
-    urgentOrLast = mkLuaInline "hl.dsp.focus({ urgent_or_last = true })";
+      ws:
+      dsp "focus" {
+        workspace = ws;
+        on_current_monitor = true;
+      };
+    window = w: dsp "focus" { window = w; };
+    monitor = m: dsp "focus" { monitor = m; };
+    last = dsp "focus" { last = true; };
+    urgentOrLast = dsp "focus" { urgent_or_last = true; };
   };
 
   window = {
-    close = mkLuaInline "hl.dsp.window.close()";
-    kill = mkLuaInline "hl.dsp.window.kill()";
-    float = action: mkLuaInline "hl.dsp.window.float(${lua { action = action; }})";
-    floatToggle = mkLuaInline "hl.dsp.window.float({})";
-    fullscreen = mode: mkLuaInline "hl.dsp.window.fullscreen(${lua { mode = mode; }})";
-    fullscreenToggle = mkLuaInline "hl.dsp.window.fullscreen({})";
-    pseudo = action: mkLuaInline "hl.dsp.window.pseudo(${lua { action = action; }})";
-    pseudoToggle = mkLuaInline "hl.dsp.window.pseudo({})";
-    move = args: mkLuaInline "hl.dsp.window.move(${lua args})";
-    moveDir = d: mkLuaInline "hl.dsp.window.move({ direction = ${lua d} })";
-    moveToWorkspace = ws: mkLuaInline "hl.dsp.window.move({ workspace = ${lua ws} })";
-    moveToMonitor = m: mkLuaInline "hl.dsp.window.move({ monitor = ${lua m} })";
-    center = mkLuaInline "hl.dsp.window.center({})";
-    pin = action: mkLuaInline "hl.dsp.window.pin(${lua { action = action; }})";
-    pinToggle = mkLuaInline "hl.dsp.window.pin({})";
-    cycleNext = mkLuaInline "hl.dsp.window.cycle_next({})";
-    cyclePrev = mkLuaInline "hl.dsp.window.cycle_next({ prev = true })";
-    bringToTop = mkLuaInline "hl.dsp.window.bring_to_top()";
-    alterZorder = mode: mkLuaInline "hl.dsp.window.alter_zorder({ mode = ${lua mode} })";
-    drag = mkLuaInline "hl.dsp.window.drag()";
-    resize = mkLuaInline "hl.dsp.window.resize()";
-    resizeKeepAspect = mkLuaInline "hl.dsp.window.resize({ keep_aspect_ratio = true })";
-    setProp = args: mkLuaInline "hl.dsp.window.set_prop(${lua args})";
+    close = dsp0 "window.close";
+    kill = dsp0 "window.kill";
+    float = action: dsp "window.float" { inherit action; };
+    floatToggle = dsp "window.float" { };
+    fullscreen = mode: dsp "window.fullscreen" { inherit mode; };
+    fullscreenToggle = dsp "window.fullscreen" { };
+    pseudo = action: dsp "window.pseudo" { inherit action; };
+    pseudoToggle = dsp "window.pseudo" { };
+    move = dsp "window.move";
+    moveDir = dir: dsp "window.move" { direction = dir; };
+    moveToWorkspace = ws: dsp "window.move" { workspace = ws; };
+    moveToMonitor = m: dsp "window.move" { monitor = m; };
+    center = dsp "window.center" { };
+    pin = action: dsp "window.pin" { inherit action; };
+    pinToggle = dsp "window.pin" { };
+    cycleNext = dsp "window.cycle_next" { };
+    cyclePrev = dsp "window.cycle_next" { prev = true; };
+    bringToTop = dsp0 "window.bring_to_top";
+    alterZorder = mode: dsp "window.alter_zorder" { inherit mode; };
+    drag = dsp0 "window.drag";
+    resize = dsp0 "window.resize";
+    resizeKeepAspect = dsp "window.resize" { keep_aspect_ratio = true; };
+    setProp = dsp "window.set_prop";
   };
 
   workspace = {
-    next = mkLuaInline "hl.dsp.focus({ workspace = \"e+1\" })";
-    prev = mkLuaInline "hl.dsp.focus({ workspace = \"e-1\" })";
-    previous = mkLuaInline "hl.dsp.focus({ workspace = \"previous\" })";
-    rename =
-      { workspace, name }:
-      mkLuaInline "hl.dsp.workspace.rename({ workspace = ${lua workspace}, name = ${lua name} })";
-    moveToMonitor =
-      { workspace, monitor }:
-      mkLuaInline "hl.dsp.workspace.move({ workspace = ${lua workspace}, monitor = ${lua monitor} })";
-    toggleSpecial = name: mkLuaInline "hl.dsp.workspace.toggle_special(${lua name})";
+    next = dsp "focus" { workspace = "e+1"; };
+    prev = dsp "focus" { workspace = "e-1"; };
+    previous = dsp "focus" { workspace = "previous"; };
+    rename = { workspace, name }: dsp "workspace.rename" { inherit workspace name; };
+    moveToMonitor = { workspace, monitor }: dsp "workspace.move" { inherit workspace monitor; };
+    toggleSpecial = dsp "workspace.toggle_special";
   };
 
-  layout = msg: mkLuaInline "hl.dsp.layout(${lua msg})";
-  submap = name: mkLuaInline "hl.dsp.submap(${lua name})";
+  layout = dsp "layout";
+  submap = dsp "submap";
+  global = dsp "global";
 
   pass =
     {
@@ -157,27 +163,72 @@ rec {
       key ? null,
       ...
     }@args:
-    if mods != null then
-      mkLuaInline "hl.dsp.send_shortcut(${lua args})"
+    if mods != null then dsp "send_shortcut" args else dsp "pass" args;
+
+  # -- wrap: the single point where a dispatcher expression (or a list of
+  # them, when one bind should fire several dispatchers) becomes an actual
+  # LuaInline value. Everything above stays a plain string until this runs.
+  wrap =
+    cmd:
+    if builtins.isList cmd then
+      mkLuaInline ''
+        function()
+          ${concatMapStringsSep "\n  " (c: c) cmd}
+        end
+      ''
     else
-      mkLuaInline "hl.dsp.pass(${lua args})";
+      mkLuaInline cmd;
 
-  global = id: mkLuaInline "hl.dsp.global(${lua id})";
+  # A bind value is either a bare dispatcher (string or list of strings,
+  # for combining several), or { cmd; flags; } when it needs flags.
+  normalizeBind =
+    v:
+    if builtins.isAttrs v then
+      {
+        inherit (v) cmd;
+        flags = lib.toList (v.flags or [ ]);
+      }
+    else
+      {
+        cmd = v;
+        flags = [ ];
+      };
 
-  # -- binds (produce _args tables that become hl.bind(...) calls) --
-  bind = keycomb: dispatcher: {
-    _args = [
-      keycomb
-      dispatcher
-    ];
-  };
-  bindf = keycomb: dispatcher: fl: {
-    _args = [
-      keycomb
-      dispatcher
-      fl
-    ];
-  };
+  # helper for groups that all share the same flag (mouse/locked/repeating).
+  # Operates on an attrset of key -> bind value now, not a list.
+  withFlags =
+    flags:
+    builtins.mapAttrs (
+      _: v:
+      let
+        n = normalizeBind v;
+      in
+      {
+        inherit (n) cmd;
+        flags = n.flags ++ lib.toList flags;
+      }
+    );
+
+  # -- mkBinds: attrset of "key combo string" -> dispatcher (or { cmd; flags; })
+  # becomes the list of _args tables home-manager turns into hl.bind(...) calls.
+  # Because it's a real attrset, accidentally writing the same key combo twice
+  # in one literal is now a hard Nix eval error instead of Hyprland silently
+  # getting two competing binds.
+  mkBinds =
+    binds:
+    lib.mapAttrsToList (
+      key: v:
+      let
+        n = normalizeBind v;
+      in
+      {
+        _args = [
+          key
+          (wrap n.cmd)
+        ]
+        ++ n.flags;
+      }
+    ) binds;
 
   # -- monitor / window-rule helpers --
   monitor = args: args;
@@ -202,19 +253,22 @@ rec {
       shiftMod ? "${mod} + SHIFT",
       count ? 10,
     }:
-    builtins.concatLists (
-      builtins.genList (
-        x:
+    mkBinds (
+      builtins.foldl' (
+        acc: x:
         let
           n = x + 1;
           # map 10 -> "0" to match a typical top-row key
           c = n / 10;
           keyName = toString (n - (c * 10));
         in
-        [
-          (bind (key mod keyName) (focus.workspace n))
-          (bind (key shiftMod keyName) (window.moveToWorkspace n))
-        ]
-      ) count
+        acc
+        // {
+          "${mod} + ${keyName}" =
+            focus.workspace n;
+          "${shiftMod} + ${keyName}" =
+            window.moveToWorkspace n;
+        }
+      ) { } (builtins.genList (x: x) count)
     );
 }
