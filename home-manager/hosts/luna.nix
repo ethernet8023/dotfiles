@@ -1,4 +1,9 @@
-{ config, lib, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 {
   # luna-specific home config: the desktop with two 27" monitors, both mounted
   # physically portrait -- a 4K on the right and a 1440p on the left.
@@ -28,8 +33,8 @@
         # no rebuild/replug — use it to A/B before editing this file): gentle
         # low ramp for precision, steady climb through the medium range,
         # last-segment slope ((8-7.512)/2.2 ~= 0.22x) as the cruise factor.
-        accel_profile = "custom 2.2 0.010725455777575553 0.03481132427897955 0.10802142029952082 0.28513045152573563 0.6011738354029882 1.4118664540198298 1.986602780602482 2.314534020945035 2.745505250181486 2.9237747316656617 3.198709559996233 5.0133648028866045 6.624072807188476 6.744212988241895 7.512221021535088 8.000000000000004";
-        scroll_factor = 0.5;
+        accel_profile = "custom 2.2 0.010725455777575553 0.027066619968138222 0.04987054844484621 0.11400618764267659 0.15755771097391608 0.2425425738956315 0.3767379683532114 0.6011738354029882 0.8768591742347696 1.2789678561514115 2.232807122433165 5.0133648028866045 6.624072807188476 6.744212988241895 7.512221021535088 8.000000000000004";
+        scroll_factor = 0.3;
         natural_scroll = true;
       }
     ]
@@ -82,4 +87,15 @@
     hlog = "journalctl --user -u hermes-agent -f";
     hblog = "journalctl --user -u hermes-backend -f";
   };
+
+  # Live trackball curve editor for the Ploopy Adept (see the device block
+  # above for how the custom accel profile works). `ploopy-curve` syncs its
+  # starting curve from this file, serves the editor on 127.0.0.1:8799, and
+  # pushes slider changes live via `hyprctl eval`. Winners get re-baked into
+  # the accel_profile above. Editor assets live in ./ploopy-curve-editor/.
+  home.file.".local/share/ploopy-curve-editor/server.py".source = ./ploopy-curve-editor/server.py;
+  home.file.".local/share/ploopy-curve-editor/editor.html".source = ./ploopy-curve-editor/editor.html;
+  home.packages = [
+    (pkgs.writeShellScriptBin "ploopy-curve" (builtins.readFile ./ploopy-curve-editor/ploopy-curve.sh))
+  ];
 }

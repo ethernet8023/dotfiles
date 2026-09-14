@@ -179,6 +179,16 @@
         wtcleanf = "!git wtgone | xargs -r -I{} git worktree remove {} --force && git worktree prune -v";
         allclean = "!git bclean; git wtclean; git bclean; git wtclean";
         allcleanf = "!git bclean; git wtcleanf; git bclean; git wtcleanf";
+
+        # new worktree based off current branch
+        wtnew = ''
+          !f() { \
+              root=$(git rev-parse --path-format=absolute --git-common-dir | sed 's|/\.git||') || exit 1; \
+              branch="$1"; \
+              name=$(printf '%s' "$branch" | tr '/' '-'); \
+              git worktree add "$root/.worktrees/$name" -b "$branch"; \
+              cd "$root/.worktrees/$name"
+          }; f'';
       };
     };
     signing.format = null;

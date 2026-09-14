@@ -135,6 +135,14 @@ let
   '';
 in
 {
+  # The template action writes /proc/self/exe (.noctalia-wrapped on Nix), but
+  # only recognises noctalia/noctalia-pywalfox as its own host on later runs.
+  # Refresh explicitly on activation so upgrades cannot leave Firefox pointing
+  # at an old store path that garbage collection removes.
+  home.activation.noctaliaFirefoxHost = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+    run ${lib.getExe' config.programs.noctalia.package "noctalia"} firefox-theme install
+  '';
+
   programs.noctalia = {
     enable = true;
     systemd.enable = true;
@@ -230,6 +238,12 @@ in
           # writing the identical json to wal/colors.json made the same
           # userChrome render rgb(218,218,218), and a dark toggle then landed
           # rgb(30,30,46) live with no restart.
+          # Pywalfox derives BOTH modes from a dark neutral ramp: slot 0 is
+          # dark background / light text, and slots 7/15 are light foregrounds.
+          # Feeding it latte's light slot 0 makes light-mode text nearly white.
+          # Keep those neutrals dark; only the accents follow the active mode.
+          # Its default primary slots are 10 (dark) and 3 (light), secondary
+          # slots 13/5. Map all four to our lavender, not terminal green/yellow.
           user.firefox = {
             enabled = true;
             input_path = "${./noctalia-templates/firefox-colors.json}";

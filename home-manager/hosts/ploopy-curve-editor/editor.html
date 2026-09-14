@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><style>
+  :root { color-scheme: dark; }
+  html,body { margin:0; padding:0; background:transparent; color: var(--foreground,#eee);
+              font: 13px/1.4 var(--font, sans-serif); }
+  svg { display:block; }
+  .title { font-size:12px; fill: var(--muted-foreground,#999); }
+  .axis  { font-size:11px; fill: var(--muted-foreground,#999); }
+  .tick  { font-size:10px; fill: var(--muted-foreground,#888); }
+  .grid  { stroke: var(--border,#333); stroke-width:1; }
+  .curve { stroke: var(--accent,#7aa2f7); stroke-width:2; fill:none; }
+  .dot   { fill: var(--accent,#7aa2f7); }
+  .dashline { stroke: var(--border,#444); stroke-dasharray: 3 4; }
+  .marker { fill: #e5c07b; }
+  .mring  { stroke: #e5c07b; fill:none; opacity:.35; }
+  .hist   { stroke: var(--accent,#7aa2f7); stroke-width:1.5; fill:none; opacity:.55; }
+  .readout { font-size:13px; fill: var(--foreground,#eee); font-variant-numeric: tabular-nums; }
+  .live-dot { fill: #e06c75; }
+  .rail { margin: 6px 0 2px 0; }
+  .rail label { display:inline-block; width:110px; font-size:11px; color: var(--muted-foreground,#999); }
+  .rail input[type=range] { width: 300px; vertical-align: middle; accent-color: var(--accent,#7aa2f7); }
+  .rail .val { display:inline-block; width:70px; font-size:11px; color: var(--foreground,#eee); font-variant-numeric: tabular-nums; }
+  .rail.on { background: rgba(229,192,123,.16); border-radius: 6px; }
+  .rail.on label { color: #e5c07b; font-weight: 600; }
+  .rail.on input[type=range] { accent-color: #e5c07b; }
+  .rail.on .val { color: #e5c07b; }
+  .btn { font: inherit; font-size: 12px; color: var(--accent,#7aa2f7); background: var(--card,#222);
+         border: 1px solid var(--border,#444); border-radius: 6px; padding: 4px 10px; cursor: pointer; margin-right: 8px; }
+  .btn:hover { border-color: var(--accent,#7aa2f7); }
+  .hint { font-size: 11px; color: var(--muted-foreground,#888); margin-top: 4px; }
+  #panel { max-width: 740px; }
+</style></head><body>
+<svg id="c" width="740" height="420" viewBox="0 0 740 420">
+  <text x="58" y="20" class="title">output speed — f(input speed), log scale &nbsp;·&nbsp; <tspan class="live-dot">●</tspan> live: roll the ball</text>
+  <g id="grid"></g>
+  <g id="curveg"></g>
+  <g id="strip">
+    <text x="58" y="255" class="title">pointer speed history (last 6s, px/ms — auto-scales to ur peak)</text>
+    <g id="histg"></g>
+  </g>
+  <text id="ro" class="readout" x="58" y="412"></text>
+</svg>
+<div id="panel">
+  <div id="rails"></div>
+  <div style="margin-top:8px">
+    <button class="btn" id="copy">copy profile string</button>
+    <span class="hint">drag = redraw only · release = hyprctl eval · dashed line = last defined point — right of it is extrapolation (cruise zone; slope = last two sliders) · <tspan class="live-dot">●</tspan> = ur hand · gold rails = where u are</span>
+  </div>
+</div>
+<script>
+const W=740, PADL=58, PADR=14, P1Y0=34, P1H=180, P2Y0=300, P2H=100; let XMAX=48;
+const START={"step": 2.2, "points": [0.010725455777575553, 0.03481132427897955, 0.10802142029952082, 0.28513045152573563, 0.6011738354029882, 1.4118664540198298, 1.986602780602482, 2.314534020945035, 2.745505250181486, 2.9237747316656617, 3.198709559996233, 5.0133648028866045, 6.624072807188476, 6.744212988241895, 7.512221021535088, 8.000000000000004]};
+let STEP=START.step, PTS=START.points.slice();
+const X = x => PADL + x/XMAX*(W-PADL-PADR);
+const lg = (v,vmin,vmax,y0,h) => y0+h - (Math.log10(Math.max(v,vmin))-Math.log10(vmin))/(Math.log10(vmax)-Math.log10(vmin))*h;
+const vmin1=0.004; let vmax1=30;
+let peakOut=1;
+function cruiseSlope(){ return (PTS[PTS.length-1]-PTS[PTS.length-2])/STEP; }
+function neededX(){
+  const def=(PTS.length-1)*STEP, top=PTS[PTS.length-1];
+  if(peakOut<=top) return def;
+  const sl=Math.max(cruiseSlope(),0.01);
+  return def + (peakOut-top)/sl;
+}
+function curXMax(){ return Math.min(3000, Math.max(10, (PTS.length-1)*STEP*6, neededX()*1.15)); }
+function curVMax(){ const fx=Math.max(f(curXMax()),1); return Math.max(3, Math.pow(10, Math.ceil(Math.log10(fx*1.1)))); }
+function histMax(){ return Math.max(3, Math.pow(10, Math.ceil(Math.log10(peakOut*1.05)))); }
+function f(x){
+  const last=(PTS.length-1)*STEP;
+  if(x>=last){const sl=(PTS[PTS.length-1]-PTS[PTS.length-2])/STEP; return PTS[PTS.length-1]+sl*(x-last);}
+  const i=Math.floor(x/STEP), fr=x/STEP-i;
+  return PTS[i]+(PTS[i+1]-PTS[i])*fr;
+}
+function finv(y){ // FIRST crossing — curve is monotone non-decreasing, no state, no ratchet
+  const N=2000;
+  for(let k=0;k<N;k++){
+    const x=k/(N-1)*XMAX;
+    if(f(x)>=y) return x;
+  }
+  return XMAX;
+}
+function draw(){
+  XMAX=curXMax(); vmax1=curVMax();
+  const grid=document.getElementById('grid'); grid.innerHTML='';
+  const cg=document.getElementById('curveg'); cg.innerHTML='';
+  const tickN=12, tickStep=XMAX/tickN;
+  for(let g=0;g<=tickN;g++){
+    const gx=g*tickStep, px=X(gx);
+    for(const [y0,h] of [[P1Y0,P1H],[P2Y0,P2H]]){
+      grid.innerHTML+=`<line class="grid" x1="${px}" y1="${y0}" x2="${px}" y2="${y0+h}"/>`;
+    }
+    grid.innerHTML+=`<text class="tick" x="${px}" y="${P1Y0+P1H+16}" text-anchor="middle">${parseFloat(gx.toFixed(1))}</text>`;
+  }
+  for(const v of [0.01,0.1,1,10,100]){
+    if(v>vmax1) continue;
+    const py=lg(v,vmin1,vmax1,P1Y0,P1H);
+    grid.innerHTML+=`<line class="grid" x1="${PADL}" y1="${py}" x2="${W-PADR}" y2="${py}"/>`+
+      `<text class="tick" x="${PADL-6}" y="${py+4}" text-anchor="end">${v}</text>`;
+  }
+  const ex=X((PTS.length-1)*STEP);
+  cg.innerHTML+=`<line class="dashline" x1="${ex}" y1="${P1Y0}" x2="${ex}" y2="${P1Y0+P1H}"/>`+
+    `<text class="tick" x="${ex+5}" y="${P1Y0+12}">extrapolated →</text>`;
+  let d='';
+  for(let k=0;k<=600;k++){ const x=0.04+(XMAX-0.04)*k/600; d+=`${X(x).toFixed(1)},${lg(f(x),vmin1,vmax1,P1Y0,P1H).toFixed(1)} `; }
+  cg.innerHTML+=`<polyline class="curve" points="${d}"/>`;
+  for(let i=0;i<PTS.length;i++){
+    cg.innerHTML+=`<circle class="dot" cx="${X(i*STEP)}" cy="${lg(Math.max(PTS[i],0.01),vmin1,vmax1,P1Y0,P1H)}" r="3.2"/>`;
+  }
+  cg.innerHTML+=`<circle id="mring" class="mring" cx="-10" cy="-10" r="9" stroke-width="2"/>`+
+    `<circle id="marker" class="marker" cx="-10" cy="-10" r="4"/>`;
+  const hg=document.getElementById('histg'); hg.innerHTML='';
+  const HM=histMax();
+  for(const v of [0.1,1,10,100,1000]){
+    if(v>HM) continue;
+    const py=lg(v,0.01,HM,P2Y0,P2H);
+    hg.innerHTML+=`<line class="grid" x1="${PADL}" y1="${py}" x2="${W-PADR}" y2="${py}"/>`+
+      `<text class="tick" x="${PADL-6}" y="${py+4}" text-anchor="end">${v}</text>`;
+  }
+  hg.innerHTML+=`<polyline id="hist" class="hist" points=""/>`;
+}
+draw();
+
+let hist=[]; const ro=document.getElementById('ro');
+
+// ---- sliders ----
+const rails = document.getElementById('rails');
+const SL_MIN=0.001, SL_MAX=8;
+const toSlider = v => (Math.log10(Math.max(v,SL_MIN))-Math.log10(SL_MIN))/(Math.log10(SL_MAX)-Math.log10(SL_MIN))*1000;
+const fromSlider = s => Math.pow(10, Math.log10(SL_MIN)+(s/1000)*(Math.log10(SL_MAX)-Math.log10(SL_MIN)));
+function fmtv(v){ return v>=1? v.toFixed(2) : v>=0.01? v.toFixed(3) : v.toFixed(4); }
+let sliderEls=[], railEls=[];
+function buildRails(){
+  rails.innerHTML='';
+  const stepRail=document.createElement('div'); stepRail.className='rail';
+  stepRail.innerHTML=`<label>step</label><input type="range" min="0.05" max="6" step="0.05" value="${STEP}"><span class="val" id="v-step">${STEP}</span>`;
+  rails.appendChild(stepRail);
+  stepRail.querySelector('input').addEventListener('input', e=>{
+    STEP=parseFloat(e.target.value); document.getElementById('v-step').textContent=STEP; draw(); buildPointLabels(); dirty=true;
+  });
+  railEls=[];
+  PTS.forEach((v,i)=>{
+    const r=document.createElement('div'); r.className='rail';
+    r.innerHTML=`<label class="pl">x=${(i*STEP).toFixed(1)}</label><input type="range" min="0" max="1000" value="${toSlider(v)}"><span class="val">${fmtv(v)}</span>`;
+    const inp=r.querySelector('input'), val=r.querySelector('.val');
+    inp.addEventListener('input', ()=>{
+      PTS[i]=fromSlider(parseFloat(inp.value)); val.textContent=fmtv(PTS[i]); draw(); dirty=true;
+    });
+    railEls.push(r);
+    rails.appendChild(r);
+  });
+}
+function buildPointLabels(){
+  document.querySelectorAll('.rail .pl').forEach((el,i)=>{ if(railEls[i]) el.textContent=`x=${(i*STEP).toFixed(1)}`; });
+}
+let dirty=false, pushing=false;
+function commit(){
+  if(!dirty) return; dirty=false;
+  fetch('/curve', {method:'POST', headers:{'Content-Type':'application/json'},
+                   body: JSON.stringify({step: STEP, points: PTS})})
+    .then(r=>r.json())
+    .then(j=>{ ro.textContent = j.ok ? 'applied ✓' : '⚠ '+j.err; })
+    .catch(e=>ro.textContent='⚠ '+e);
+}
+document.addEventListener('pointerup', ()=>{ if(dirty && !pushing) commit(); });
+
+const es=new EventSource('/stream');
+es.addEventListener('curve', e=>{
+  const c=JSON.parse(e.data);
+  if(pushing) return;
+  STEP=c.step; PTS=c.points; draw(); buildRails();
+});
+es.onmessage=e=>{
+  const s=JSON.parse(e.data);
+  const now=performance.now()/1000;
+  hist.push({t:now,v:s.v}); while(hist.length&&now-hist[0].t>6) hist.shift();
+  peakOut=Math.max(s.v, peakOut*0.99);
+  if(neededX()*1.15 > XMAX*1.05) draw();
+  const hl=document.getElementById('hist');
+  let pts='';
+  const HM=histMax();
+  for(const p of hist){ const xx=W-PADR-((now-p.t)/6)*(W-PADL-PADR); pts+=`${xx.toFixed(1)},${lg(p.v,0.01,HM,P2Y0,P2H).toFixed(1)} `; }
+  hl.setAttribute('points',pts);
+  const xin=finv(s.v);
+  const mk=document.getElementById('marker'), ring=document.getElementById('mring');
+  const py=lg(s.v,vmin1,vmax1,P1Y0,P1H);
+  mk.setAttribute('cx',X(Math.min(xin,XMAX))); mk.setAttribute('cy',py);
+  ring.setAttribute('cx',X(Math.min(xin,XMAX))); ring.setAttribute('cy',py);
+  const seg=Math.min(Math.max(Math.floor(xin/STEP),0),PTS.length-2);
+  railEls.forEach((r,i)=>r.classList.toggle('on', i===seg||i===seg+1));
+  const zone = xin >= (PTS.length-1)*STEP ? ' (cruise zone)' : '';
+  ro.textContent = `pointer ${s.v.toFixed(3)} px/ms · on-curve input ~${xin.toFixed(1)} u/ms → ×${(f(Math.max(xin,0.01))/Math.max(xin,0.01)).toFixed(3)}${zone}`;
+};
+document.getElementById('copy').addEventListener('click', ()=>{
+  const prof='custom '+STEP+' '+PTS.join(' ');
+  navigator.clipboard.writeText(prof).then(()=>{ ro.textContent='copied: '+prof.slice(0,80)+'…'; });
+});
+buildRails();
+</script>
+</body></html>
