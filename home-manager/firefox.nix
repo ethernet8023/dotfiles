@@ -13,13 +13,15 @@ let
   # shell panels and the browser together.
   opacityPct = toString (builtins.floor ((import ./opacity.nix).applications * 100.0 + 0.5));
 
-  colors = (import ./schemes.nix { inherit pkgs inputs; }).dark;
+  schemes = import ./schemes.nix { inherit pkgs inputs; };
+  colors = schemes.dark;
 
   # addon -> extra ExtensionSettings keys. private_browsing is emitted only
   # where listed: an explicit false revokes access and greys out the toggle,
   # which is a bigger lockdown than freezing the addon set.
   addons = {
     ublock-origin.private_browsing = true;
+    darkreader = { };
     bitwarden = { };
     sponsorblock = { };
     refined-github = { };
@@ -93,6 +95,31 @@ in
     profiles = {
       default = {
         isDefault = true;
+        extensions.settings.${ffAddons.darkreader.addonId} = {
+          force = true;
+          settings = {
+            schemeVersion = 2;
+            enabled = true;
+            syncSettings = false;
+            # Pywalfox owns the browser chrome; Dark Reader only themes pages.
+            changeBrowserTheme = false;
+            # Scheme switches mocha/latte instead of disabling the extension
+            # in light mode. Noctalia publishes the system colour-scheme signal.
+            automation = {
+              enabled = true;
+              mode = "system";
+              behavior = "Scheme";
+            };
+            theme = {
+              darkColorScheme = "Catppuccin";
+              lightColorScheme = "Catppuccin";
+              darkSchemeBackgroundColor = schemes.dark.withHashtag.base00;
+              darkSchemeTextColor = schemes.dark.withHashtag.base05;
+              lightSchemeBackgroundColor = schemes.light.withHashtag.base00;
+              lightSchemeTextColor = schemes.light.withHashtag.base05;
+            };
+          };
+        };
         userChrome = ''
           #back-button, #forward-button {
             display: none;
