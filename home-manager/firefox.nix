@@ -24,7 +24,10 @@ let
     darkreader = { };
     bitwarden = { };
     sponsorblock = { };
-    refined-github = { };
+    # off while trying the local filter-jobs-by-status build (~/src/refined-github,
+    # branch filter-jobs-by-status). both use the same extension id, so the store
+    # copy has to go for the local one to load.
+    # refined-github = { };
     vimium = { };
     user-agent-string-switcher = { };
     # Applies the palette noctalia pushes over native messaging. The extension
