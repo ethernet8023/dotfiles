@@ -41,6 +41,18 @@ let
   # under the firefox application id. policies force_installed needs a URL to
   # that file rather than the package.
   firefoxAppId = "{ec8030f7-c20a-464f-9b0e-13a3a9e97384}";
+
+  # local refined-github build (~/src/refined-github, branch
+  # filter-jobs-by-status), packed by hand and copied here. it has no
+  # signature, so it only loads on a build with signing enforcement off --
+  # which is why programs.firefox.package below is developer edition. the id is
+  # the same one the store addon uses, hence the store copy staying commented
+  # out in `addons`.
+  localRefinedGithub = {
+    id = "{a4c4eda4-fb84-4a84-b4a1-f7c1cbf2a1ad}";
+    xpi = "${config.home.homeDirectory}/.local/share/refined-github-local/refined-github.xpi";
+  };
+
   forceInstalled = lib.mapAttrs' (
     name: extra:
     let
@@ -53,11 +65,21 @@ let
       }
       // extra
     )
-  ) addons;
+  ) addons
+  // {
+    ${localRefinedGithub.id} = {
+      installation_mode = "force_installed";
+      install_url = "file://${localRefinedGithub.xpi}";
+    };
+  };
 in
 {
   programs.firefox = {
     enable = true;
+    # release and beta firefox are built with signature enforcement compiled
+    # in (the pref below is ignored there). developer edition is the nixpkgs
+    # package built with requireSigning = false.
+    package = pkgs.firefox-devedition;
     # upstream's default moves to $XDG_CONFIG_HOME/mozilla/firefox at
     # stateVersion 26.05. pin the legacy path -- switching means physically
     # moving ~/.mozilla/firefox, which isn't something a rebuild should do.
@@ -96,7 +118,12 @@ in
     };
 
     profiles = {
-      default = {
+      # developer edition only opens the profile named dev-edition-default and
+      # ignores Default=1. path stays "default" so it keeps using the existing
+      # ~/.mozilla/firefox/default dir (logins, addon data, userChrome).
+      dev-edition-default = {
+        id = 0;
+        path = "default";
         isDefault = true;
         extensions.settings.${ffAddons.darkreader.addonId} = {
           force = true;
