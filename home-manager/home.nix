@@ -1,4 +1,5 @@
 {
+  config,
   pkgs,
   ...
 }:
@@ -51,6 +52,7 @@
     awscli # aws cli
     ansible # ansible devops bullshit
     nixd
+    ast-grep
 
     # programming languages
     python3
@@ -131,6 +133,9 @@
       p = "pnpm";
       # open a link on the connected android phone
       phone = "adb shell am start --user 0 -a android.intent.action.VIEW -d";
+
+      copy = "${pkgs.lib.getExe' pkgs.wl-clipboard "wl-copy"}";
+      paste = "${pkgs.lib.getExe' pkgs.wl-clipboard "wl-paste"}";
     };
 
     shellInit = ''
@@ -181,17 +186,23 @@
         allcleanf = "!git bclean; git wtcleanf; git bclean; git wtcleanf";
 
         # new worktree based off current branch
-        wtnew = ''
+        wt = ''
           !f() { \
               root=$(git rev-parse --path-format=absolute --git-common-dir | sed 's|/\.git||') || exit 1; \
               branch="$1"; \
               name=$(printf '%s' "$branch" | tr '/' '-'); \
               git worktree add "$root/.worktrees/$name" -b "$branch"; \
               cd "$root/.worktrees/$name"
+              code .
           }; f'';
       };
     };
-    signing.format = null;
+    # each host signs with its own ssh key; it must be added to github as a signing key.
+    signing = {
+      format = "ssh";
+      key = "${config.home.homeDirectory}/.ssh/id_ed25519.pub";
+      signByDefault = true;
+    };
     lfs.enable = true;
   };
   programs.difftastic = {

@@ -53,7 +53,7 @@
   };
 
   services.hermes-agent = {
-    enable = true;
+    enable = false;
 
     # "serve" is the headless backend: the /api/ws + /api/pty sockets Hermes
     # Desktop attaches to, without building the browser admin panel. Loopback
