@@ -205,6 +205,10 @@ in
           "widget.wayland.opaque-region.enabled" = false;
 
           "extensions.autoDisableScopes" = 0;
+          # dev edition is built with MOZ_REQUIRE_SIGNING unset, which only makes
+          # this pref changeable -- it still defaults to true. without this the
+          # policy silently refuses the unsigned local refined-github xpi.
+          "xpinstall.signatures.required" = false;
           "browser.tabs.animate" = false;
           "browser.ml.linkPreview.enabled" = false;
           "screenshots.browser.component.enabled" = false;
