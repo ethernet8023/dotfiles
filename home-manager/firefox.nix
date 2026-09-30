@@ -29,6 +29,8 @@ let
     # copy has to go for the local one to load.
     # refined-github = { };
     vimium = { };
+    # Catppuccin userstyles, generated -- see catppuccin-userstyles.nix.
+    stylus = { };
     user-agent-string-switcher = { };
     # Applies the palette noctalia pushes over native messaging. The extension
     # is required, not optional: noctalia's firefox-theme post action generates
@@ -244,6 +246,24 @@ in
       };
     };
   };
+
+  # Stylus's style list, derived from the flake inputs on every switch -- so
+  # edits made in the Stylus UI don't outlive a rebuild. A plain home.file
+  # rather than `extensions.settings`: that takes its data at eval time, and
+  # these styles need a build (catppuccin-userstyles.nix) before they exist.
+  home.file."${config.programs.firefox.configPath}/default/browser-extension-data/${ffAddons.stylus.addonId}/storage.js" =
+    {
+      force = true;
+      source = import ./catppuccin-userstyles.nix {
+        inherit pkgs inputs;
+        stylusXpi = "${ffAddons.stylus}/share/mozilla/extensions/${firefoxAppId}/${ffAddons.stylus.addonId}.xpi";
+        # the flavors schemes.nix is built from, and the accent the shell,
+        # window borders and Hermes skin already use (base07).
+        darkFlavor = "mocha";
+        lightFlavor = "latte";
+        accent = "lavender";
+      };
+    };
 
   xdg.mimeApps.defaultApplications = {
     "text/html" = [ "firefox.desktop" ];

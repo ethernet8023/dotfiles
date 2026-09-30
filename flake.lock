@@ -41,6 +41,30 @@
         "type": "github"
       }
     },
+    "catppuccin-userstyles-export": {
+      "flake": false,
+      "locked": {
+        "narHash": "sha256-g9ujoflMZFOoIbmVp01ztaL8pAMZ+KF+UYGUYi13moE=",
+        "type": "file",
+        "url": "https://github.com/catppuccin/userstyles/releases/download/all-userstyles-export/import.json"
+      },
+      "original": {
+        "type": "file",
+        "url": "https://github.com/catppuccin/userstyles/releases/download/all-userstyles-export/import.json"
+      }
+    },
+    "catppuccin-userstyles-lib": {
+      "flake": false,
+      "locked": {
+        "narHash": "sha256-P3ZbTp+g+nPxPM13Ju7ck4zepnvnDtLmcrxloFjTEmk=",
+        "type": "file",
+        "url": "https://userstyles.catppuccin.com/lib/std/v1.less"
+      },
+      "original": {
+        "type": "file",
+        "url": "https://userstyles.catppuccin.com/lib/std/v1.less"
+      }
+    },
     "crane": {
       "locked": {
         "lastModified": 1779130139,
@@ -709,6 +733,8 @@
       "inputs": {
         "agenix": "agenix",
         "base16": "base16",
+        "catppuccin-userstyles-export": "catppuccin-userstyles-export",
+        "catppuccin-userstyles-lib": "catppuccin-userstyles-lib",
         "fido2-hid-bridge": "fido2-hid-bridge",
         "flakegen": "flakegen",
         "fw-inputmodule": "fw-inputmodule",

@@ -29,6 +29,20 @@
       # The base16 scheme library, used directly by home-manager/schemes.nix.
       # No followsNixpkgs: base16.nix takes no nixpkgs input.
       base16.url = "github:SenchoPens/base16.nix";
+      # catppuccin's prebuilt Stylus export, a rolling release asset. Pinned by
+      # hash in flake.lock; updating these two inputs pulls whatever upstream
+      # has published since:
+      #   nix flake update catppuccin-userstyles-export catppuccin-userstyles-lib
+      # Consumed by home-manager/catppuccin-userstyles.nix.
+      catppuccin-userstyles-export = {
+        url = "file+https://github.com/catppuccin/userstyles/releases/download/all-userstyles-export/import.json";
+        flake = false;
+      };
+      # The less library every one of those styles @imports.
+      catppuccin-userstyles-lib = {
+        url = "file+https://userstyles.catppuccin.com/lib/std/v1.less";
+        flake = false;
+      };
       # nixcord takes TWO nixpkgs: `nixpkgs` for the module and a separately
       # pinned `nixpkgs-nixcord` it builds vencord/vesktop from. followsNixpkgs
       # only redirects the first, so the second is set explicitly -- otherwise

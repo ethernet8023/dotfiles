@@ -10,6 +10,14 @@
       url = "github:ryantm/agenix";
     };
     base16.url = "github:SenchoPens/base16.nix";
+    catppuccin-userstyles-export = {
+      flake = false;
+      url = "file+https://github.com/catppuccin/userstyles/releases/download/all-userstyles-export/import.json";
+    };
+    catppuccin-userstyles-lib = {
+      flake = false;
+      url = "file+https://userstyles.catppuccin.com/lib/std/v1.less";
+    };
     fido2-hid-bridge = {
       inputs.nixpkgs.follows = "nixpkgs";
       url = "github:arilotter/fido2-hid-bridge-flake";
