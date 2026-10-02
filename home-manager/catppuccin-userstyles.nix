@@ -37,7 +37,7 @@ pkgs.runCommand "stylus-catppuccin-storage.js"
   }
   ''
     mkdir js
-    unzip -j ${stylusXpi} js/usercss-compiler.js js/less.js js/moz-parser.js js/parserlib.js -d js
+    unzip -j ${stylusXpi} js/worker.js js/less.js js/parserlib.js -d js
     node ${./catppuccin-userstyles/build-storage.mjs} js \
       ${inputs.catppuccin-userstyles-export} \
       ${inputs.catppuccin-userstyles-lib} \

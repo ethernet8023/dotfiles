@@ -11,8 +11,8 @@ const [, , jsDir, importJson, libLess, outFile, pinsJson] = process.argv;
 const pins = JSON.parse(pinsJson);
 
 // --- run Stylus's own compiler outside the browser ---------------------------
-// usercss-compiler.js is Stylus's web worker script: it expects `self`,
-// `importScriptsOnce`, and (through less.js) an XMLHttpRequest for @import.
+// worker.js is Stylus's web worker script: it expects `self`, `importScripts`,
+// and (through less.js) an XMLHttpRequest for @import.
 // Running the shipped files, rather than a reimplementation, keeps the output
 // identical to what Stylus itself builds on install.
 const g = globalThis;
@@ -41,25 +41,43 @@ g.XMLHttpRequest = class {
     queueMicrotask(() => this.onreadystatechange?.());
   }
 };
-const loaded = new Set();
 g.importScripts = (...names) => {
   for (const name of names) {
     vm.runInThisContext(fs.readFileSync(`${jsDir}/${name}`, 'utf8'), { filename: name });
   }
 };
-g.importScriptsOnce = (...names) => {
-  for (const name of names) {
-    if (!loaded.has(name)) {
-      loaded.add(name);
-      g.importScripts(name);
-    }
-  }
-};
-g.importScripts('usercss-compiler.js');
+// worker.js is a MessagePort worker: it registers `onmessage`, and a message
+// carrying `data.id` is answered once on `ports[0]` with `{ id, res, err }`.
+// worker.js idles itself out with `close()` after a job; there is no worker to close here.
+g.close = () => {};
+g.importScripts('worker.js');
+let nextJobId = 0;
+const compileUsercss = (code, preprocessor, vars) =>
+  new Promise((resolve, reject) => {
+    const id = ++nextJobId;
+    const port = {
+      postMessage({ res, err }) {
+        if (err) reject(err[0]);
+        else resolve(res);
+      },
+    };
+    g.onmessage({
+      data: { id, args: ['compileUsercss', code, preprocessor, vars] },
+      ports: [port],
+    });
+  });
 
 // --- the same three knobs as uncenter/catppuccin-userstyles-customizer -------
 // The export's first element is `{ settings }`, Stylus's prefs blob. Those
 // live in storage.sync, which can't be written from here, so it's dropped.
+// Upstream bug: pronouns.cc and Google Drive have a few `--x: #lib.rgbify(@c);`
+// lines missing the `[]` lookup that every sibling line has. The less in
+// Stylus >= 2.4.14 (4.9) rejects a mixin call used as a property value
+// ("Rulesets cannot be evaluated on a property"); older less let it through.
+// Adding the `[]` is what upstream plainly meant, so do that rather than drop
+// the style. Drop this once upstream fixes the export.
+const fixRgbifyLookups = (code) => code.replace(/(:\s*#lib\.rgbify\([^)]*\))(\s*;)/g, '$1[]$2');
+
 const styles = JSON.parse(fs.readFileSync(importJson, 'utf8')).filter((e) => e.usercssData);
 
 const uuidFor = (namespace) => {
@@ -75,14 +93,14 @@ for (const [i, style] of styles.entries()) {
   for (const [name, value] of Object.entries(pins)) {
     if (vars[name]) vars[name].value = value;
   }
-  const { sections, errors } = await g.compileUsercss(
+  const [sections] = await compileUsercss(
+    fixRgbifyLookups(style.sourceCode),
     style.usercssData.preprocessor,
-    style.sourceCode,
     structuredClone(vars),
-  );
-  if (errors.length || !sections.length) {
-    throw new Error(`${style.name}: ${JSON.stringify(errors)}`);
-  }
+  ).catch((e) => {
+    throw new Error(`${style.name}: ${e?.message ?? JSON.stringify(e)}`);
+  });
+  if (!sections.length) throw new Error(`${style.name}: no sections built`);
   const id = i + 1;
   out[`style-${id}`] = {
     ...style,
@@ -95,3 +113,5 @@ for (const [i, style] of styles.entries()) {
   };
 }
 fs.writeFileSync(outFile, JSON.stringify(out));
+// worker.js arms a 5 minute idle timer that would otherwise keep node alive.
+process.exit(0);
