@@ -15,6 +15,7 @@
     ./firefox.nix
     ./supersonic.nix
     ./vscode.nix
+    ./yazi.nix
     # ./neovim.nix
 
     ./hermes-agent-skin.nix
@@ -28,7 +29,6 @@
 
   home.packages = with pkgs; [
     # desktop env
-    nautilus # file manager
     inputs.hypr-contrib.packages.${pkgs.stdenv.hostPlatform.system}.grimblast # screenshot tool
     pavucontrol # audio control
     blueman # bluetooth manager

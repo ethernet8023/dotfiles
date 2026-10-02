@@ -304,12 +304,10 @@ in
             match.class = "^(dev\\.noctalia\\.Noctalia)$";
             float = true;
           }
+          # the yazi file chooser (yazi.nix). Matched by class: yazi rewrites
+          # the window title.
           {
-            match.title = "^(Open Files)$";
-            float = true;
-          }
-          {
-            match.title = "^(Save File)$";
+            match.class = "^(local\\.termfilechooser)$";
             float = true;
           }
           {

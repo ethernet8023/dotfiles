@@ -34,12 +34,17 @@
 
   xdg.portal = {
     enable = true;
-    extraPortals = [ pkgs.xdg-desktop-portal-hyprland ];
+    extraPortals = [
+      pkgs.xdg-desktop-portal-hyprland
+      pkgs.xdg-desktop-portal-termfilechooser
+    ];
     config.hyprland = {
       default = [
         "hyprland"
         "gtk"
       ];
+      # open/save dialogs run yazi in a terminal; see home-manager/yazi.nix.
+      "org.freedesktop.impl.portal.FileChooser" = [ "termfilechooser" ];
     };
   };
 
