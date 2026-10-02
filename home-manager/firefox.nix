@@ -21,7 +21,7 @@ let
   # which is a bigger lockdown than freezing the addon set.
   addons = {
     ublock-origin.private_browsing = true;
-    darkreader = { };
+    # darkreader = { };
     bitwarden = { };
     sponsorblock = { };
     # off while trying the local filter-jobs-by-status build (~/src/refined-github,
@@ -55,25 +55,26 @@ let
     xpi = "${config.home.homeDirectory}/.local/share/refined-github-local/refined-github.xpi";
   };
 
-  forceInstalled = lib.mapAttrs' (
-    name: extra:
-    let
-      addon = ffAddons.${name};
-    in
-    lib.nameValuePair addon.addonId (
-      {
+  forceInstalled =
+    lib.mapAttrs' (
+      name: extra:
+      let
+        addon = ffAddons.${name};
+      in
+      lib.nameValuePair addon.addonId (
+        {
+          installation_mode = "force_installed";
+          install_url = "file://${addon}/share/mozilla/extensions/${firefoxAppId}/${addon.addonId}.xpi";
+        }
+        // extra
+      )
+    ) addons
+    // {
+      ${localRefinedGithub.id} = {
         installation_mode = "force_installed";
-        install_url = "file://${addon}/share/mozilla/extensions/${firefoxAppId}/${addon.addonId}.xpi";
-      }
-      // extra
-    )
-  ) addons
-  // {
-    ${localRefinedGithub.id} = {
-      installation_mode = "force_installed";
-      install_url = "file://${localRefinedGithub.xpi}";
+        install_url = "file://${localRefinedGithub.xpi}";
+      };
     };
-  };
 in
 {
   programs.firefox = {
