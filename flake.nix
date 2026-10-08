@@ -41,10 +41,7 @@
       url = "github:nix-darwin/nix-darwin";
     };
     nixcord = {
-      inputs = {
-        nixpkgs.follows = "nixpkgs";
-        nixpkgs-nixcord.follows = "nixpkgs";
-      };
+      inputs.nixpkgs.follows = "nixpkgs";
       url = "github:4evy/nixcord";
     };
     nixos-hardware = {
@@ -69,6 +66,10 @@
       url = "github:nix-community/nix-vscode-extensions";
     };
     vscode-server.url = "github:nix-community/nixos-vscode-server";
+    yazi-plugins = {
+      inputs.nixpkgs.follows = "nixpkgs";
+      url = "github:lordkekz/nix-yazi-plugins";
+    };
   };
   nixConfig.extra-deprecated-features = [ "broken-string-escape" ];
   outputs = inputs: inputs.flakegen ./flake.in.nix inputs;

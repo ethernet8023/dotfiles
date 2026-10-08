@@ -31,7 +31,7 @@ in
 
     # Frameless + transparent window, patched at build time. See
     # ./vscode-vibrancy for what that does and when it needs re-checking.
-    package = pkgs.callPackage ./vscode-vibrancy { };
+    # package = pkgs.callPackage ./vscode-vibrancy { };
 
     # without this, only.. some of the extensions show up?
     # very very strange.

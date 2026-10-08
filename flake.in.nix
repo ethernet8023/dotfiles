@@ -43,15 +43,7 @@
         url = "file+https://userstyles.catppuccin.com/lib/std/v1.less";
         flake = false;
       };
-      # nixcord takes TWO nixpkgs: `nixpkgs` for the module and a separately
-      # pinned `nixpkgs-nixcord` it builds vencord/vesktop from. followsNixpkgs
-      # only redirects the first, so the second is set explicitly -- otherwise
-      # it silently adds a whole extra nixpkgs to the closure.
-      nixcord = {
-        url = "github:4evy/nixcord";
-        inputs.nixpkgs.follows = "nixpkgs";
-        inputs.nixpkgs-nixcord.follows = "nixpkgs";
-      };
+      nixcord = followsNixpkgs "github:4evy/nixcord";
       # NOT followsNixpkgs: hermes-agent builds a uv2nix python set against the
       # nixpkgs it pins and tests with, so overriding that input breaks the
       # build. It therefore brings its own nixpkgs -- see the exemption in
@@ -60,11 +52,11 @@
       vscode-server.url = "github:nix-community/nixos-vscode-server";
       noctalia = followsNixpkgs "github:noctalia-dev/noctalia";
       noctalia-appmenu = followsNixpkgs "github:yolo-labz/noctalia-appmenu";
+      yazi-plugins = followsNixpkgs "github:lordkekz/nix-yazi-plugins";
     };
 
   outputs =
     {
-      self,
       nur,
       nixpkgs,
       home-manager,

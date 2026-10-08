@@ -200,12 +200,27 @@ let
   } (builtins.readFile ./file-manager1.py);
 in
 {
+  imports = [ inputs.yazi-plugins.legacyPackages.x86_64-linux.homeManagerModules.default ];
   programs.yazi = {
     enable = true;
     enableFishIntegration = true;
     # cd's the shell to wherever you quit. Pinned: the default depends on
     # home.stateVersion.
     shellWrapperName = "y";
+
+    yaziPlugins = {
+      enable = true;
+      plugins = {
+        bypass.enable = true;
+        chmod.enable = true;
+        starship.enable = true;
+        copy-file-contents.enable = true;
+        git.enable = true;
+        glow.enable = true;
+        smart-enter.enable = true;
+        rich-preview.enable = true;
+      };
+    };
 
     settings.mgr = {
       show_hidden = true;
