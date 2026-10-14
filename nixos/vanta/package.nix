@@ -16,6 +16,7 @@
   coreutils,
   diffutils,
   jq,
+  lsb-release,
 }:
 let
   version = "2.20.0";
@@ -70,6 +71,9 @@ stdenvNoCC.mkDerivation {
         coreutils
         diffutils
         jq
+        # the agent shells out to lsb_release for the os name/version; nixos
+        # has none on PATH, so without this the os version is reported blank.
+        lsb-release
       ]
     }
     export VANTA_REGION=us
