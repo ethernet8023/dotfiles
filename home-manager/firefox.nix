@@ -24,10 +24,7 @@ let
     # darkreader = { };
     bitwarden = { };
     sponsorblock = { };
-    # off while trying the local filter-jobs-by-status build (~/src/refined-github,
-    # branch filter-jobs-by-status). both use the same extension id, so the store
-    # copy has to go for the local one to load.
-    # refined-github = { };
+    refined-github = { };
     vimium = { };
     # Catppuccin userstyles, generated -- see catppuccin-userstyles.nix.
     stylus = { };
@@ -44,15 +41,12 @@ let
   # that file rather than the package.
   firefoxAppId = "{ec8030f7-c20a-464f-9b0e-13a3a9e97384}";
 
-  # local refined-github build (~/src/refined-github, branch
-  # filter-jobs-by-status), packed by hand and copied here. it has no
-  # signature, so it only loads on a build with signing enforcement off --
-  # which is why programs.firefox.package below is developer edition. the id is
-  # the same one the store addon uses, hence the store copy staying commented
-  # out in `addons`.
-  localRefinedGithub = {
-    id = "{a4c4eda4-fb84-4a84-b4a1-f7c1cbf2a1ad}";
-    xpi = "${config.home.homeDirectory}/.local/share/refined-github-local/refined-github.xpi";
+  # own extension (source in ./ci-graph): dagre job graph + skipped-job filter
+  # on Actions run pages. it has no signature, so it only loads on developer
+  # edition with signatures.required = false (see below).
+  ciGraph = {
+    id = "ci-graph@ethernet8023.github.io";
+    xpi = "${pkgs.callPackage ./ci-graph.nix { }}/ci-graph.xpi";
   };
 
   forceInstalled =
@@ -70,9 +64,9 @@ let
       )
     ) addons
     // {
-      ${localRefinedGithub.id} = {
+      ${ciGraph.id} = {
         installation_mode = "force_installed";
-        install_url = "file://${localRefinedGithub.xpi}";
+        install_url = "file://${ciGraph.xpi}";
       };
     };
 in
@@ -210,7 +204,7 @@ in
           "extensions.autoDisableScopes" = 0;
           # dev edition is built with MOZ_REQUIRE_SIGNING unset, which only makes
           # this pref changeable -- it still defaults to true. without this the
-          # policy silently refuses the unsigned local refined-github xpi.
+          # policy silently refuses the unsigned ci-graph xpi.
           "xpinstall.signatures.required" = false;
           "browser.tabs.animate" = false;
           "browser.ml.linkPreview.enabled" = false;

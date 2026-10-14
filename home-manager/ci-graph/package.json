@@ -1,0 +1,20 @@
+{
+	"name": "ci-graph",
+	"private": true,
+	"type": "module",
+	"version": "0.5.1",
+	"scripts": {
+		"build": "node build.mjs",
+		"typecheck": "tsc --noEmit",
+		"test": "vitest --run",
+		"pack": "npm run build && cd dist && zip -qr ../ci-graph.zip ."
+	},
+	"dependencies": {
+		"@dagrejs/dagre": "3.1.1"
+	},
+	"devDependencies": {
+		"esbuild": "0.28.2",
+		"typescript": "7.0.2",
+		"vitest": "5.0.3"
+	}
+}

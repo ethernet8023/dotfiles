@@ -1,0 +1,23 @@
+{
+	"manifest_version": 3,
+	"name": "CI Graph",
+	"version": "0.5.1",
+	"description": "A readable layout for GitHub Actions job graphs, with skipped jobs hidden.",
+	"browser_specific_settings": {
+		"gecko": {
+			"id": "ci-graph@ethernet8023.github.io",
+			"strict_min_version": "133.0",
+			"data_collection_permissions": {
+				"required": ["none"]
+			}
+		}
+	},
+	"host_permissions": ["https://github.com/*"],
+	"content_scripts": [
+		{
+			"matches": ["https://github.com/*/*/actions/runs/*"],
+			"js": ["content.js"],
+			"run_at": "document_idle"
+		}
+	]
+}
