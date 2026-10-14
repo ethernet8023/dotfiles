@@ -1,8 +1,15 @@
-{ pkgs, ... }:
+{ config, pkgs, ... }:
 {
   imports = [
     ./tuigreet.nix
   ];
+
+  # the phone is my nfc reader: a pc/sc reader (piv, opensc) and a virtual fido
+  # key for webauthn. see github.com/ethernet8023/tapbridge docs/nixos.md
+  services.tapbridge = {
+    enable = true;
+    users = [ config.me.username ];
+  };
 
   boot.plymouth.enable = true;
 

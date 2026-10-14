@@ -24,6 +24,8 @@
       vscode-ext = followsNixpkgs "github:nix-community/nix-vscode-extensions";
       # beepy = followsNixpkgs "github:arilotter/nixos-beepy";
       fido2-hid-bridge = followsNixpkgs "github:arilotter/fido2-hid-bridge-flake";
+      # phone as NFC reader + virtual FIDO key. feat/linux until it merges to main.
+      tapbridge = followsNixpkgs "github:ethernet8023/tapbridge/feat/linux";
       fw-inputmodule = followsNixpkgs "github:caffineehacker/nix?dir=flakes/inputmodule-rs";
       # nixvim = followsNixpkgs "github:nix-community/nixvim";
       # The base16 scheme library, used directly by home-manager/schemes.nix.
@@ -92,6 +94,7 @@
         }
       ];
       graphical-modules = base-modules ++ [
+        inputs.tapbridge.nixosModules.default
         ./nixos/graphical-configuration.nix
         {
           # home-graphical.nix pulls in home.nix itself

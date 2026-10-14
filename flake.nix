@@ -61,6 +61,10 @@
       inputs.nixpkgs.follows = "nixpkgs";
       url = "github:nix-community/NUR";
     };
+    tapbridge = {
+      inputs.nixpkgs.follows = "nixpkgs";
+      url = "github:ethernet8023/tapbridge/feat/linux";
+    };
     vscode-ext = {
       inputs.nixpkgs.follows = "nixpkgs";
       url = "github:nix-community/nix-vscode-extensions";
