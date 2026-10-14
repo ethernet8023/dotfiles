@@ -24,4 +24,11 @@ in
   "digitalocean-token.age" = {
     publicKeys = keys.home-devices ++ [ keys.dollnet ];
   };
+  # vanta device monitor, luna + hermes only (nixos/vanta/module.nix)
+  "vanta.age" = {
+    publicKeys = [
+      keys.luna
+      keys.hermes
+    ];
+  };
 }

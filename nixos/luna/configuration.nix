@@ -7,6 +7,8 @@ let
   nvidiaProfile = builtins.readFile ./nvidia-wayland-fix.json;
 in
 {
+  imports = [ ../vanta/module.nix ];
+
   networking.hostName = "luna";
 
   # home is /home/ethie here, which is what identity.nix defaults to.

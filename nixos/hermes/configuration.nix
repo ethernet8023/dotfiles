@@ -4,6 +4,8 @@
   ...
 }:
 {
+  imports = [ ../vanta/module.nix ];
+
   networking.hostName = "hermes";
 
   services.power-profiles-daemon.enable = true;
