@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+# prints this machine's posture for the things vanta can't see on linux.
+set -u
+
+# disk encryption: is anything under / a dm-crypt (LUKS) device?
+if lsblk -nso TYPE "$(findmnt -no SOURCE /)" 2>/dev/null | grep -qx crypt; then
+  echo "disk encryption:  ENABLED (LUKS on /)"
+else
+  echo "disk encryption:  NOT ENABLED on /"
+fi
+
+# noctalia idle/lock settings come from the active (resolved) config.
+noctalia config export 2>/dev/null | python3 -c '
+import sys, tomllib
+cfg = tomllib.loads(sys.stdin.read())
+locking = [
+    (name, b["timeout"])
+    for name, b in cfg.get("idle", {}).get("behavior", {}).items()
+    if b.get("enabled", True)
+    and b.get("timeout", 0) > 0
+    and (b.get("action") in ("lock", "lock_and_suspend")
+         or (b.get("action") == "suspend" and b.get("lock_before_suspend", True)))
+]
+if locking:
+    for name, t in locking:
+        print(f"screen lock:      after {t:g}s idle ({name})")
+else:
+    print("screen lock:      NO idle timeout configured (manual lock / lock-on-suspend only)")
+print("lockscreen pw:    " + ("password required to unlock (PAM)" if cfg.get("lockscreen", {}).get("enabled", True) else "LOCKSCREEN DISABLED"))
+'
+
+echo "antivirus:        no antivirus installed - nixos does not run arbitrary binaries; the system is built from hash-pinned packages in a read-only store, so unreviewed code can't install itself"

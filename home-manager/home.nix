@@ -142,7 +142,7 @@
       ${pkgs.lib.getExe pkgs.starship} init fish | source
 
       set -gx ANDROID_HOME $HOME/Android/Sdk
-      set -gx PATH $PATH ~/.yarn/bin ~/.npm/bin ~/bin ~/go/bin ~/.cargo/bin $ANDROID_HOME/emulator $ANDROID_HOME/tools $ANDROID_HOME/tools/bin $ANDROID_HOME/platform-tools
+      set -gx PATH $PATH ~/.yarn/bin ~/.npm/bin ~/bin ~/dotfiles/bin ~/go/bin ~/.cargo/bin $ANDROID_HOME/emulator $ANDROID_HOME/tools $ANDROID_HOME/tools/bin $ANDROID_HOME/platform-tools
 
       function checkout-last-version
         set card $argv[1]

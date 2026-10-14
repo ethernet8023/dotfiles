@@ -73,7 +73,7 @@
     shellInit = ''
       ${pkgs.lib.getExe pkgs.starship} init fish | source
 
-      set -gx PATH $PATH ~/bin ~/go/bin ~/.cargo/bin
+      set -gx PATH $PATH ~/bin ~/dotfiles/bin ~/go/bin ~/.cargo/bin
     '';
   };
 
