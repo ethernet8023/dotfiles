@@ -335,6 +335,12 @@ in
         blurred_desktop = true;
       };
 
+      # lock after 10 minutes idle.
+      idle.behavior.lock = {
+        timeout = 600;
+        action = "lock";
+      };
+
       wallpaper = {
         enabled = true;
 
