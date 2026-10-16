@@ -6,15 +6,13 @@
 
   me = (import ../../hosts.nix).iris;
 
-  # keep the ssh key that agenix uses authorized for luna -> iris
+  # the mesh (see ssh-pubkeys.nix); keeps agenix identity + machine ssh working
   users.users.${config.me.username}.openssh.authorizedKeys.keys =
     let
       keys = import ../../ssh-pubkeys.nix;
     in
-    with keys;
-    [
-      luna
-      hermes
-      android
+    keys.mesh ++ [
+      # the android key has always landed here too
+      keys.android
     ];
 }

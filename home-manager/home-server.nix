@@ -13,6 +13,10 @@
   # nixos/all-systems-configuration.nix on my own hosts, or set explicitly by a
   # foreign flake importing homeManagerModules.server.
 
+  # same ssh client config / host mesh as the desktop profile (ssh.nix
+  # enables programs.ssh itself).
+  imports = [ ./ssh.nix ];
+
   home = {
     stateVersion = "23.05"; # keep in step with home.nix
   };

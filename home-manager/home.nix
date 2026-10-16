@@ -8,6 +8,8 @@
   # flake's tty-modules / darwin-modules -- not imported here, since choosing
   # an import based on `pkgs` recurses under home-manager's useGlobalPkgs.
 
+  imports = [ ./ssh.nix ];
+
   home = {
     # username / homeDirectory come from the host config (see identity.nix),
     # since they differ per machine: /home/ethie on luna, /home/ari on the
@@ -81,37 +83,8 @@
     nix-direnv.enable = true;
   };
 
-  programs.ssh = {
-    enable = true;
-    # upstream is dropping its implicit `Host *` defaults, so spell them out
-    # and opt out of the built-ins. these are the values the old default
-    # produced, so the generated config is unchanged.
-    enableDefaultConfig = false;
-    settings = {
-      "*" = {
-        addKeysToAgent = "no";
-        compression = false;
-        controlMaster = "no";
-        controlPath = "~/.ssh/master-%r@%n:%p";
-        controlPersist = "no";
-        forwardAgent = false;
-        hashKnownHosts = false;
-        serverAliveCountMax = 3;
-        serverAliveInterval = 0;
-        userKnownHostsFile = "~/.ssh/known_hosts";
-      };
-      hgx = {
-        hostname = "216.55.186.241";
-        port = 22;
-        user = "ari";
-      };
-      iris = {
-        # dhcp moves it around; mdns is stable
-        hostname = "iris.local";
-        user = (import ../hosts.nix).iris.username;
-      };
-    };
-  };
+  # ssh client config + host entries live in ./ssh.nix (shared with the
+  # headless home-server profile so dollnet gets the same mesh).
 
   programs.fish = {
     enable = true;
