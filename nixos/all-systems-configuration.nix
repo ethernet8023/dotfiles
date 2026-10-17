@@ -190,14 +190,12 @@
       hashedPasswordFile = config.age.secrets.ethie-passwd.path;
       openssh.authorizedKeys.keys =
         let
-          keys = (import ../ssh-pubkeys.nix);
+          keys = import ../ssh-pubkeys.nix;
         in
-        with keys;
-        [
-          luna
-          hermes
-          android
-          nous-eng
+        # the mesh (see ssh-pubkeys.nix) plus the standing external keys
+        keys.mesh ++ [
+          keys.android
+          keys.nous-eng
         ];
     };
   };

@@ -48,3 +48,25 @@ clean:
 
 fmt:
   nix fmt .
+
+# ── dollnet (dahlia's box; see ~/dotfiles-dollnet) ─────────────────────
+# the box's SYSTEM config lives in the ~/dotfiles-dollnet clone of
+# ethernet8023/dollnet-dotfiles, checked out on the box at /home/shared/flake.
+# my own user config reaches it as that flake's `ethie-dotfiles` input, so:
+# change dotfiles here -> push -> `just dollnet-update-input` -> `just dollnet-switch`.
+
+# bump the ethie-dotfiles pin on the box and push the lockfile commit
+dollnet-update-input:
+  #!/usr/bin/env bash
+  set -euo pipefail
+  ssh ethernet@dollnet 'cd /home/shared/flake && git pull --ff-only && nix flake update ethie-dotfiles && git add flake.lock && git -c user.name=ethernet -c user.email=arilotter@gmail.com commit -m "pin: bump ethie-dotfiles" && git push'
+
+# deploy: sync both checkouts, build the closure here, switch it there.
+# asks for the box's sudo password once (over the tty NIX_SSHOPTS=-t allocates).
+dollnet-switch *args:
+  #!/usr/bin/env bash
+  set -euo pipefail
+  git -C "$HOME/dotfiles-dollnet" pull --ff-only
+  ssh ethernet@dollnet 'git -C /home/shared/flake pull --ff-only' \
+    || echo "!! box checkout dirty; skipped pull -- reconcile /home/shared/flake by hand"
+  NIX_SSHOPTS=-t nixos-rebuild switch --flake "$HOME/dotfiles-dollnet#dollnet" --use-remote-sudo -L {{args}}
