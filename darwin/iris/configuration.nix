@@ -6,6 +6,9 @@
 
   me = (import ../../hosts.nix).iris;
 
+  # phone as the nfc card reader; options: tapbridge/docs/nix-darwin.md
+  programs.tapbridge.enable = false;
+
   # the mesh (see ssh-pubkeys.nix); keeps agenix identity + machine ssh working
   users.users.${config.me.username}.openssh.authorizedKeys.keys =
     let
