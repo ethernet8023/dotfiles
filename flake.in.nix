@@ -109,6 +109,7 @@
       darwin-modules = [
         agenix.darwinModules.default
         home-manager.darwinModules.home-manager
+        inputs.tapbridge.darwinModules.default
         {
           home-manager.extraSpecialArgs = { inherit inputs; };
           home-manager.useGlobalPkgs = true;
