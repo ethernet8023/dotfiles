@@ -50,8 +50,10 @@
       };
 
       # ── the jump host. everything in the house goes through here. ──
+      # cross-tailnet magicdns (…giraffa-richter.ts.net) does NOT resolve
+      # reliably from our resolver, so use the tailnet IP: per-node, stable.
       dollnet = {
-        hostname = "dollnet.giraffa-richter.ts.net";
+        hostname = "100.95.51.7";
         user = "ethernet";
       };
 
@@ -64,8 +66,12 @@
       deimos = {
         hostname = "deimos.local";
         user = "ethernet";
-        # two hops, explicit: dollnet → phobos → deimos
-        proxyJump = "ethernet@dollnet,ethernet@phobos";
+        # two hops, explicit: dollnet → phobos → deimos. the intermediate hop
+        # is fully-qualified on purpose: jump-hop hostnames are resolved by the
+        # previous hop's resolver, and plain `phobos` has no search domain
+        # there — only the mdns name, which dollnet gets from avahi
+        # (ethernet-infra.nix) and phobos announces natively.
+        proxyJump = "ethernet@dollnet,ethernet@phobos.local";
       };
       luna = {
         hostname = "luna.local";
