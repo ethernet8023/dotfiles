@@ -21,7 +21,7 @@ rec {
   promise = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILdhWXhyj4XlpWsgtdhnVQoRsePkekikby69I1NNI1l4 arilotter@gmail.com";
 
   # ethernet's USER key on dollnet (the host key is `dollnet` below)
-  dollnet-user = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAII07YJjVEXOI7taW500PJ1j6hPI+mHoJNWxXG90/6SL+ arilotter@gmail.com";
+  bellona-user = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAII07YJjVEXOI7taW500PJ1j6hPI+mHoJNWxXG90/6SL+ arilotter@gmail.com";
 
   # window (windows box, user laser) was offline at last edit; when it's up:
   #   ssh -F none laser@window.local "powershell -NoProfile -Command Get-Content ~/.ssh/id_ed25519.pub"
@@ -49,7 +49,7 @@ rec {
     phobos
     deimos
     promise
-    dollnet-user
+    bellona-user
   ];
 
   # legacy sets, agenix recipients only -- do not grow these casually; adding

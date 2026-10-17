@@ -169,9 +169,12 @@
             home-manager.extraSpecialArgs.hermes-agent-package =
               inputs.hermes-agent.packages.x86_64-linux.default;
 
-            # declares services.hermes-agent for the hm config above
+            # hm-level modules for ethernet's user config: hermes-agent declares
+            # services.hermes-agent; agenix decrypts the shared gateway token
+            # (home.age, see bellona-ether.nix).
             home-manager.sharedModules = [
               inputs.hermes-agent.homeManagerModules.default
+              inputs.agenix.homeManagerModules.default
             ];
           };
       };

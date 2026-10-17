@@ -77,10 +77,6 @@
     #   2. bellona is shared into my tailnet, so it has a *different* address in
     #      each tailnet's view -- an IP resolved on the box is simply wrong for
     #      remote peers; the dns name resolves correctly from both sides.
-    #      (the box was renamed dollnet->bellona on 2026-10-16; the oauth
-    #      redirect registered in the nous portal still says dollnet.~ —
-    #      re-register http://bellona.giraffa-richter.ts.net:9119/auth/callback
-    #      or the login gate falls back to basic-auth.)
     #
     # waitFor polls until the magicdns name resolves before binding. without it
     # the unit races tailscaled at boot and uvicorn fails on the unresolvable
@@ -91,49 +87,35 @@
       host = "bellona.giraffa-richter.ts.net";
       waitFor = "hostname";
       port = 9119;
+
+      # auth = one shared session token, agenix-decrypted (see
+      # nixos/bellona-ether.nix). no nous portal oauth, no basic-auth: the
+      # token becomes HERMES_DASHBOARD_SESSION_TOKEN and authorizes /api and
+      # /api/ws directly. hermes desktop presents the same value in its
+      # remote-gateway auth field -- read the luna copy at
+      #      /run/agenix/hermes-gateway-token. the module insists on a runtime path
+      #      (a nix store path would be world-readable) and 0600, which agenix
+      #      gives us.
+      sessionTokenFile = config.age.secrets.hermes-gateway-token.path;
     };
 
     settings = {
-      # local inference via the ollama already running on this box
+      # inference on the spark pair: phobos heads GLM-5.3-Flash EXL3 (4bpw,
+      # deimos drafts), exposed on :8888 -- same endpoint luna's `spark` alias
+      # uses. by IP because this box has no mDNS resolver (fresh nixos, no
+      # avahi) and phobos's dhcp leases wander; if the lease moves, update
+      # here -- or give bellona avahi and go back to phobos.local.
+      # (the old qwen-via-localhost ollama died with dahlia's fresh start.)
       model = {
-        default = "qwen3.6:27b";
-        base_url = "http://localhost:11434/v1";
+        default = "GLM-5.3-Flash-EXL3";
+        base_url = "http://192.168.2.159:8888/v1";
         provider = "custom";
-        api_key = "";
+        api_key = "local";
       };
-
-      # nous portal oauth for the dashboard login gate.
-      #
-      # `hermes dashboard register` refuses to run here -- it bails on
-      # is_managed(), on the assumption that a managed install gets its
-      # client_id stamped in by whatever orchestrates it. that assumption is
-      # right; nix IS the orchestrator, so the stamping happens here rather
-      # than by letting the CLI write into .env (which activation truncates
-      # every rebuild anyway).
-      #
-      # get the id from https://portal.nousresearch.com/local-dashboards --
-      # register a dashboard with redirect uri
-      #   http://dollnet.giraffa-richter.ts.net:9119/auth/callback
-      # plain http is fine: the nous provider explicitly allows non-https
-      # hosts and only requires the path end in /auth/callback.
-      #
-      # the plugin reads dashboard.oauth.client_id from config.yaml
-      # (_resolve_client_id, precedence 2 behind the env var), and an empty
-      # string means "no client_id configured" -- so the gate stays on
-      # basic-auth until this is filled in.
-      #
-      # no dashboard.public_url needed: with the backend bound to the magicdns
-      # name, the callback url the auth layer reconstructs from the request is
-      # already correct.
-      dashboard.oauth.client_id = "agent:cmsga8vyd0015i40aftwu84zl";
     };
 
-    # secrets stay out of the nix store. created by hand, chmod 0600:
+    # discord secrets stay out of the nix store. created by hand, chmod 0600:
     #   DISCORD_BOT_TOKEN, DISCORD_HOME_CHANNEL
-    #   HERMES_DASHBOARD_BASIC_AUTH_USERNAME
-    #   HERMES_DASHBOARD_BASIC_AUTH_PASSWORD
-    #   HERMES_DASHBOARD_BASIC_AUTH_SECRET  (stable, so desktop sessions
-    #                                        survive a backend restart)
     environmentFiles = [ "${config.home.homeDirectory}/.config/hermes/secrets.env" ];
   };
 

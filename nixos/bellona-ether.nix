@@ -43,9 +43,17 @@ in
   home-manager.useUserPackages = true;
   home-manager.backupFileExtension = "hm-backup";
 
-  # the whole user config: hermes gateway/backend, ssh client mesh, git, fish.
-  # services.hermes-agent is declared by upstream's home-manager module — it
-  # rides in via sharedModules (see the wrapper in flake.in.nix); a plain path
-  # import here can't reach our flake inputs.
-  home-manager.users.ethernet = import ../home-manager/hosts/dollnet.nix;
+  # bellona-side half of the shared hermes gateway token: agenix decrypts
+  # secrets/hermes-gateway-token.age with this box's key at hm activation, and
+  # the backend (home-manager/hosts/dollnet.nix) points sessionTokenFile at
+  # the runtime path. luna/hermes/iris decrypt their copy for the desktop via
+  # the nixos/darwin age modules instead.
+  home-manager.users.ethernet = {
+    imports = [ ../home-manager/hosts/dollnet.nix ];
+    # agenix's hm module declares `age` at the top level of the user config
+    age = {
+      identityPaths = [ "/home/ethernet/.ssh/id_ed25519" ];
+      secrets.hermes-gateway-token.file = ../secrets/hermes-gateway-token.age;
+    };
+  };
 }

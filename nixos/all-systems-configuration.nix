@@ -64,6 +64,7 @@
       ethie-passwd.file = ../secrets/ethie-passwd.age;
       sol-smbpasswd.file = ../secrets/sol-smbpasswd.age;
       netrc.file = ../secrets/netrc.age;
+      hermes-gateway-token.file = ../secrets/hermes-gateway-token.age;
     };
   };
 
@@ -193,7 +194,8 @@
           keys = import ../ssh-pubkeys.nix;
         in
         # the mesh (see ssh-pubkeys.nix) plus the standing external keys
-        keys.mesh ++ [
+        keys.mesh
+        ++ [
           keys.android
           keys.nous-eng
         ];

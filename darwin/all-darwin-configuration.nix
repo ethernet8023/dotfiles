@@ -20,6 +20,7 @@
     identityPaths = [ config.me.sshKey ];
     secrets = {
       netrc.file = ../secrets/netrc.age;
+      hermes-gateway-token.file = ../secrets/hermes-gateway-token.age;
     };
   };
 
