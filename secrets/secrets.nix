@@ -5,17 +5,16 @@ in
   "ethie-passwd.age" = {
     publicKeys = [
       keys.luna
-      keys.sol
       keys.hermes
-      keys.casey
     ];
   };
+
+  # samba password, used by bellona's ether-infra (nixos/dollnet/ethernet-infra.nix).
+  # historical name: it used to belong to sol's samba.
   "sol-smbpasswd.age" = {
     publicKeys = [
       keys.luna
-      keys.sol
-      keys.hermes
-      keys.dollnet
+      keys.bellona-user
     ];
   };
   "netrc.age" = {
@@ -36,6 +35,6 @@ in
   # it, and the desktops presenting it read their copy via age on each host.
   # see home-manager/hosts/dollnet.nix (backend.sessionTokenFile).
   "hermes-gateway-token.age" = {
-    publicKeys = keys.physically-safe-devices ++ [ keys.bellona-user ];
+    publicKeys = keys.home-devices ++ [ keys.bellona-user ];
   };
 }

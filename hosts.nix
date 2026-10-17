@@ -16,8 +16,6 @@ rec {
   hermes = linux // {
     homeDirectory = "/home/ari";
   };
-  sol = hermes;
-  casey = hermes;
 
   # macbook: different login name, and darwin homes live under /Users
   iris = {

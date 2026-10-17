@@ -207,7 +207,6 @@
             modules = graphical-modules ++ [
               ./nixos/luna/hardware-configuration.nix
               ./nixos/luna/configuration.nix
-              ./nixos/mount-sol-samba-share.nix
             ];
           }
         );
@@ -220,7 +219,6 @@
               inputs.nixos-hardware.nixosModules.framework-16-7040-amd
               ./nixos/hermes/hardware-configuration.nix
               ./nixos/hermes/configuration.nix
-              ./nixos/mount-sol-samba-share.nix
             ];
           }
         );
@@ -235,34 +233,9 @@
         #       inputs.beepy.nixosModule
         #       ./nixos/kronos/hardware-configuration.nix
         #       ./nixos/kronos/configuration.nix
-        #       ./nixos/mount-sol-samba-share.nix
         #     ];
         #   }
         # );
-
-        # server = sol
-        # locally: `sudo nixos-rebuild switch --flake .`
-        # from `another pc: `NIX_SSHOPTS="-t" nixos-rebuild switch --flake .#sol -L --target-host ethie@sol.local --use-remote-sudo`
-        "sol" = nixpkgs.lib.nixosSystem (
-          sys
-          // {
-            modules = tty-modules ++ [
-              inputs.nixos-hardware.nixosModules.hardkernel-odroid-h3
-              ./nixos/sol/hardware-configuration.nix
-              ./nixos/sol/configuration.nix
-            ];
-          }
-        );
-        "casey" = nixpkgs.lib.nixosSystem (
-          sys
-          // {
-            modules = tty-modules ++ [
-              inputs.nixos-hardware.nixosModules.hardkernel-odroid-h3
-              ./nixos/casey/hardware-configuration.nix
-              ./nixos/casey/configuration.nix
-            ];
-          }
-        );
 
         # AMD + big vram server
         # nixos/hecate/hardware-configuration.nix was never committed, so this

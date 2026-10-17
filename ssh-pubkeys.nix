@@ -27,21 +27,17 @@ rec {
   #   ssh -F none laser@window.local "powershell -NoProfile -Command Get-Content ~/.ssh/id_ed25519.pub"
   # then add it here AND to `mesh`.
 
-  # retired hosts (sol, casey) -- kept for the agenix sets below
-  sol = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIL7Yhctas2HcsJeAa82xj7uMcIa3GWJuhwFPKO9qke93 arilotter@gmail.com";
-  casey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICnDDh2c4TfMLowUo3r3zAmKKeDHWtwUubi4Ml9sD4TJ arilotter@gmail.com";
-
   # ── external / shared keys ──
   android = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOUl42TMh18ALGzChA0v1BQ6vzOJYmqt3EdFeuMaS0vD";
   nous-eng = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGifAl2SGcrIZEHkV6hm+zJ7DfyE3Q4MJcqCR0hWgqE5 engineering@nousresearch.com";
 
-  # ── dollnet host key (age identity on that box; from
+  # ── bellona host key (age identity on that box; from
   #    /home/shared/flake/secrets/secrets.nix over there) ──
   dollnet = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOZObFRctpO7wpK79eNYpw4YVLEgGRFo+XB0C1XL2Z/B";
 
   # ── categories ──
   # the mesh: authorized on every machine in it (nixos boxes add
-  # android + nous-eng on top). sol/casey are retired and stay out.
+  # android + nous-eng on top).
   mesh = [
     luna
     hermes
@@ -52,14 +48,10 @@ rec {
     bellona-user
   ];
 
-  # legacy sets, agenix recipients only -- do not grow these casually; adding
-  # a recipient requires a rekey before that host can decrypt.
+  # agenix recipients: th desktops/laptops + bellona (samba password, ddns token)
   home-devices = [
     luna
     hermes
-    sol
     iris
   ];
-
-  physically-safe-devices = home-devices ++ [ casey ];
 }

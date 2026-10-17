@@ -62,7 +62,6 @@
     identityPaths = [ config.me.sshKey ];
     secrets = {
       ethie-passwd.file = ../secrets/ethie-passwd.age;
-      sol-smbpasswd.file = ../secrets/sol-smbpasswd.age;
       netrc.file = ../secrets/netrc.age;
       hermes-gateway-token.file = ../secrets/hermes-gateway-token.age;
     };
