@@ -64,7 +64,7 @@
 
     # backend for hermes desktop + the browser dashboard:
     #   settings -> gateway -> remote gateway
-    #     -> http://dollnet.giraffa-richter.ts.net:9119
+    #     -> http://bellona.giraffa-richter.ts.net:9119
     #
     # "dashboard" = "serve" (the /api/ws + /api/pty sockets desktop needs) plus
     # the browser admin panel on the same port. free on nix: the wrapper presets
@@ -74,10 +74,13 @@
     #   1. the dashboard rejects any request whose Host header != the string it
     #      was bound to (DNS-rebinding defence, GHSA-ppp5-vxwm-4cf7). browsing to
     #      the name while bound to an IP gives "Invalid Host header".
-    #   2. dollnet is shared into my tailnet, so it has a *different* address in
-    #      each tailnet's view -- 100.80.221.70 in its own, 100.95.51.7 from
-    #      luna. an IP resolved on the box is simply wrong for remote peers; the
-    #      dns name resolves correctly from both sides.
+    #   2. bellona is shared into my tailnet, so it has a *different* address in
+    #      each tailnet's view -- an IP resolved on the box is simply wrong for
+    #      remote peers; the dns name resolves correctly from both sides.
+    #      (the box was renamed dollnet->bellona on 2026-10-16; the oauth
+    #      redirect registered in the nous portal still says dollnet.~ —
+    #      re-register http://bellona.giraffa-richter.ts.net:9119/auth/callback
+    #      or the login gate falls back to basic-auth.)
     #
     # waitFor polls until the magicdns name resolves before binding. without it
     # the unit races tailscaled at boot and uvicorn fails on the unresolvable
@@ -85,7 +88,7 @@
     # hermes-agent#91720).
     backend = {
       mode = "dashboard";
-      host = "dollnet.giraffa-richter.ts.net";
+      host = "bellona.giraffa-richter.ts.net";
       waitFor = "hostname";
       port = 9119;
     };

@@ -154,6 +154,26 @@
       # plain module paths, no nixpkgs of mine leaks through.
       nixosModules = {
         dollnet-infra = ./nixos/dollnet/ethernet-infra.nix;
+
+        # everything ethernet on bellona (dahlia's box, nee dollnet): the user
+        # account plus the ENTIRE home-manager stack, with home-manager itself
+        # dragged in from OUR pin so her fresh-start flake stays two inputs
+        # light. see nixos/bellona-ether.nix for the split of duties.
+        bellona =
+          { pkgs, ... }:
+          {
+            imports = [
+              inputs.home-manager.nixosModules.home-manager
+              ./nixos/bellona-ether.nix
+            ];
+            home-manager.extraSpecialArgs.hermes-agent-package =
+              inputs.hermes-agent.packages.x86_64-linux.default;
+
+            # declares services.hermes-agent for the hm config above
+            home-manager.sharedModules = [
+              inputs.hermes-agent.homeManagerModules.default
+            ];
+          };
       };
 
       darwinConfigurations = {
