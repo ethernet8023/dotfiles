@@ -49,7 +49,7 @@ clean:
 fmt:
   nix fmt .
 
-# ── dollnet (dahlia's box; see ~/dotfiles-dollnet) ─────────────────────
+# ── bellona (dahlia's box; nee "dollnet" — renamed 2026-10-16) ─────────
 # the box's SYSTEM config lives in the ~/dotfiles-dollnet clone of
 # ethernet8023/dollnet-dotfiles, checked out on the box at /home/shared/flake.
 # my own user config reaches it as that flake's `ethie-dotfiles` input, so:
@@ -59,7 +59,7 @@ fmt:
 dollnet-update-input:
   #!/usr/bin/env bash
   set -euo pipefail
-  ssh ethernet@dollnet 'cd /home/shared/flake && git pull --ff-only && nix flake update ethie-dotfiles && git add flake.lock && git -c user.name=ethernet -c user.email=arilotter@gmail.com commit -m "pin: bump ethie-dotfiles" && git push'
+  ssh bellona 'cd /home/shared/flake && git pull --ff-only && nix flake update ethie-dotfiles && git add flake.lock && git -c user.name=ethernet -c user.email=arilotter@gmail.com commit -m "pin: bump ethie-dotfiles" && git push'
 
 # deploy: sync both checkouts, build the closure here, switch it there.
 # asks for the box's sudo password once (over the tty NIX_SSHOPTS=-t allocates).
@@ -67,6 +67,117 @@ dollnet-switch *args:
   #!/usr/bin/env bash
   set -euo pipefail
   git -C "$HOME/dotfiles-dollnet" pull --ff-only
-  ssh ethernet@dollnet 'git -C /home/shared/flake pull --ff-only' \
+  ssh bellona 'git -C /home/shared/flake pull --ff-only' \
     || echo "!! box checkout dirty; skipped pull -- reconcile /home/shared/flake by hand"
   NIX_SSHOPTS=-t nixos-rebuild switch --flake "$HOME/dotfiles-dollnet#dollnet" --use-remote-sudo -L {{args}}
+
+# ── fleet ────────────────────────────────────────────────────────────────
+# luna    nixos — built + switched right here (sudo prompts locally)
+# hermes  nixos — closure built here, pushed w/ --target-host + remote sudo
+# iris    darwin — can't cross-build; repo is git-pulled and built ON the mac
+# bellona nixos — dahlia's flake; sync its checkout, rebuild in place
+#
+# any host with uncommitted dotfiles is SKIPPED (drift means the running
+# system corresponds to nothing in git). unreachable hosts skip silently.
+# every remote sudo asks over the tty, once per host.
+
+# tell each host to apply its config. args = subset, e.g. `just deploy-fleet luna iris`
+deploy-fleet *hosts:
+  #!/usr/bin/env bash
+  set -uo pipefail
+  hosts="{{hosts}}"
+  want=" $hosts "; [ -z "$hosts" ] && want=" luna hermes iris bellona "
+  has() { [[ " $want " == *" $1 "* ]]; }
+  dirty() { $1 git -C "$2" status --porcelain 2>/dev/null; }
+
+  if has luna; then
+    echo "── luna ──"
+    if [ -n "$(dirty '' "$HOME/dotfiles")" ]; then
+      echo "   dirty dotfiles -- commit first, skipping"
+    else
+      sudo nixos-rebuild switch --flake "$HOME/dotfiles#luna" -L
+    fi
+  fi
+
+  if has hermes; then
+    echo "── hermes ──"
+    H="ssh -F none -o BatchMode=yes ethie@hermes.tail5b83ba.ts.net"
+    if ! timeout 12 $H true 2>/dev/null; then
+      echo "   unreachable, skipping"
+    elif [ -n "$(dirty "$H" '$HOME/dotfiles')" ]; then
+      echo "   dirty dotfiles -- commit first, skipping"
+    else
+      NIX_SSHOPTS="-F none -t" nixos-rebuild switch --flake "$HOME/dotfiles#hermes" \
+        --target-host ethie@hermes.tail5b83ba.ts.net --use-remote-sudo -L
+    fi
+  fi
+
+  if has iris; then
+    echo "── iris ──"
+    I="ssh -F none -o BatchMode=yes ethernet@iris.local"
+    if ! timeout 12 $I true 2>/dev/null; then
+      echo "   unreachable, skipping"
+    elif [ -n "$(dirty "$I" '$HOME/dotfiles')" ]; then
+      echo "   dirty dotfiles -- commit first, skipping"
+    else
+      # darwin: pull the repo there and build on the metal
+      ssh -F none -t ethernet@iris.local 'cd $HOME/dotfiles && git pull --ff-only \
+        && sudo /run/current-system/sw/bin/darwin-rebuild switch --flake .#iris' \
+        || echo "   deploy failed (see above)"
+    fi
+  fi
+
+  if has bellona; then
+    echo "── bellona ──"
+    B="ssh -F none -o BatchMode=yes ethernet@100.95.51.7"
+    if ! timeout 12 $B true 2>/dev/null; then
+      echo "   unreachable, skipping"
+    elif [ -n "$(dirty "$B" '/home/shared/flake')" ]; then
+      echo "   dahlia's checkout is dirty -- not touching it, skipping"
+    else
+      $B 'git -C /home/shared/flake pull --ff-only' || echo "   pull failed, building stale checkout"
+      attr=$($B 'grep -oE "nixosConfigurations\.[A-Za-z0-9_-]+" /home/shared/flake/flake.nix | head -1 | cut -d. -f2')
+      ssh -F none -t ethernet@100.95.51.7 "sudo nixos-rebuild switch --flake /home/shared/flake#${attr:-dollnet} -L" \
+        || echo "   deploy failed (see above)"
+    fi
+  fi
+
+# where each host stands vs master: dirty tree, pinned commit, and (nixos
+# hosts, evaluated from here) whether /run/current-system == what master
+# builds. darwin/bellona generations are compared by eyeball -- different
+# builders, no local closure to diff against.
+status:
+  #!/usr/bin/env bash
+  set -uo pipefail
+  expected() { # $1 = flake attr; prints store path or nothing
+    nix build --no-link --print-out-paths ".#nixosConfigurations.$1.config.system.build.toplevel" 2>/dev/null | tail -1
+  }
+  hostline() { # $1 label, $2 ssh-prefix ('' local; word-split!), $3 dotfiles dir, $4 attr or ''
+    echo "── $1 ──"
+    if [ -n "$2" ] && ! timeout 12 $2 true 2>/dev/null; then
+      echo "   unreachable"; return
+    fi
+    local d="$(dirty "$2" "$3")"
+    [ -n "$d" ] && echo "   dirty dotfiles ($(echo "$d" | wc -l) paths)" || echo "   dotfiles clean"
+    local head="$( $2 git -C "$3" rev-parse --short HEAD 2>/dev/null )"
+    echo "   dotfiles @ ${head:-?} (origin/master: $(git -C "$HOME/dotfiles" rev-parse --short origin/master 2>/dev/null))"
+    local gen="$( $2 readlink /run/current-system 2>/dev/null )"
+    echo "   generation: ${gen:-none}"
+    if [ -n "$4" ]; then
+      local want="$(expected "$4")"
+      if [ -n "$want" ]; then
+        if [ "$(basename "$gen")" = "$(basename "$want")" ]; then
+          echo "   == master build ✔"
+        else
+          echo "   != master build (want $(basename "$want"))"
+        fi
+      fi
+    fi
+  }
+  dirty() { $1 git -C "$2" status --porcelain 2>/dev/null; }
+
+  hostline luna    ""                                                              "$HOME/dotfiles" luna
+  hostline hermes  "ssh -F none -o BatchMode=yes ethie@hermes.tail5b83ba.ts.net"   '$HOME/dotfiles' hermes
+  hostline iris    "ssh -F none -o BatchMode=yes ethernet@iris.local"              '$HOME/dotfiles' ''
+  hostline bellona "ssh -F none -o BatchMode=yes ethernet@100.95.51.7"             /home/shared/flake ''
+  echo "(iris = darwin, bellona = dahlia's flake: no local closure to diff -- compare by eye)"

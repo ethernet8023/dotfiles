@@ -52,6 +52,13 @@
       # ── the jump host. everything in the house goes through here. ──
       # cross-tailnet magicdns (…giraffa-richter.ts.net) does NOT resolve
       # reliably from our resolver, so use the tailnet IP: per-node, stable.
+      bellona = {
+        hostname = "100.95.51.7";
+        user = "ethernet";
+      };
+
+      # renamed from dollnet 2026-10-16 (hostname + mdns are `bellona` now);
+      # alias kept for muscle memory and the spark boxes' pushed configs
       dollnet = {
         hostname = "100.95.51.7";
         user = "ethernet";
