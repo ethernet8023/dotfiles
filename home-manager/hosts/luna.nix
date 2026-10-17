@@ -53,7 +53,7 @@
   };
 
   services.hermes-agent = {
-    enable = false;
+    enable = true;
 
     # "serve" is the headless backend: the /api/ws + /api/pty sockets Hermes
     # Desktop attaches to, without building the browser admin panel. Loopback
@@ -79,6 +79,17 @@
       host = "127.0.0.1";
       port = 9119;
       sessionTokenFile = "${config.home.homeDirectory}/.config/hermes/session-token";
+    };
+
+    # GLM-5.3-Flash on the Spark pair (phobos head + deimos worker, CX7
+    # fabric). Alias only -- the default model stays nous; `/model spark`
+    # switches for the session, `--global` to persist. mDNS name on purpose:
+    # DHCP moves the .154 lease around; avahi tracks it.
+    settings.model_aliases.spark = {
+      model = "GLM-5.3-Flash-EXL3";
+      provider = "custom";
+      base_url = "http://phobos.local:8888/v1";
+      api_key = "local";
     };
   };
 

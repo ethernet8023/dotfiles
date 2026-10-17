@@ -27,7 +27,7 @@
       inputs.nixpkgs.follows = "nixpkgs";
       url = "github:caffineehacker/nix?dir=flakes/inputmodule-rs";
     };
-    hermes-agent.url = "github:NousResearch/hermes-agent";
+    hermes-agent.url = "github:NousResearch/hermes-agent/v0.22.2";
     home-manager = {
       inputs.nixpkgs.follows = "nixpkgs";
       url = "github:nix-community/home-manager";

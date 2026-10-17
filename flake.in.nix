@@ -50,7 +50,7 @@
       # nixpkgs it pins and tests with, so overriding that input breaks the
       # build. It therefore brings its own nixpkgs -- see the exemption in
       # checks.checkNixpkgsVersions below.
-      hermes-agent.url = "github:NousResearch/hermes-agent";
+      hermes-agent.url = "github:NousResearch/hermes-agent/v0.22.2";
       vscode-server.url = "github:nix-community/nixos-vscode-server";
       noctalia = followsNixpkgs "github:noctalia-dev/noctalia";
       noctalia-appmenu = followsNixpkgs "github:yolo-labz/noctalia-appmenu";
