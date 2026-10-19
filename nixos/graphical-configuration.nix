@@ -9,6 +9,10 @@
   services.tapbridge = {
     enable = true;
     users = [ config.me.username ];
+    pam = {
+      sudo = true;
+      su = true;
+    };
   };
 
   boot.plymouth.enable = true;

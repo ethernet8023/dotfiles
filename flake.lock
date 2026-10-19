@@ -1037,11 +1037,11 @@
         "rust-overlay": "rust-overlay_3"
       },
       "locked": {
-        "lastModified": 1791940244,
-        "narHash": "sha256-CUs2jJ/7AW7Zgp7mBbhzBK93m2iZIHa/US+5V7N2JFA=",
+        "lastModified": 1792441615,
+        "narHash": "sha256-lC84LHOPuaaIPLEvFosCTpTRHZO5bDvgVQuL4zpjKRE=",
         "owner": "ethernet8023",
         "repo": "tapbridge",
-        "rev": "688b712c4b1800f7907aca1becdfc0d6a14231a2",
+        "rev": "2b6803ffd0fbab1cdcff640dc8a18053df1acff2",
         "type": "github"
       },
       "original": {
