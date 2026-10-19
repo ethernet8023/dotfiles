@@ -1,7 +1,7 @@
 { config, pkgs, ... }:
 {
   imports = [
-    ./tuigreet.nix
+    ./noctalia-greeter.nix
   ];
 
   # the phone is my nfc reader: a pc/sc reader (piv, opensc) and a virtual fido
