@@ -106,9 +106,6 @@
       p = "pnpm";
       # open a link on the connected android phone
       phone = "adb shell am start --user 0 -a android.intent.action.VIEW -d";
-
-      copy = "${pkgs.lib.getExe' pkgs.wl-clipboard "wl-copy"}";
-      paste = "${pkgs.lib.getExe' pkgs.wl-clipboard "wl-paste"}";
     };
 
     shellInit = ''

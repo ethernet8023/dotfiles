@@ -9,6 +9,11 @@
     findutils
   ];
 
+  programs.fish.shellAliases = {
+    copy = "pbcopy";
+    paste = "pbpaste";
+  };
+
   programs.fish.shellInit = ''
     # homebrew, for the casks nixpkgs can't do (gui apps w/ sparkle updaters)
     if test -x /opt/homebrew/bin/brew

@@ -15,4 +15,11 @@
   ];
 
   services.vscode-server.enable = true;
+
+  # wl-clipboard is badPlatforms on darwin (wayland), so these can't live in
+  # the shared home.nix; home-darwin.nix has the pbcopy equivalents.
+  programs.fish.shellAliases = {
+    copy = "${pkgs.lib.getExe' pkgs.wl-clipboard "wl-copy"}";
+    paste = "${pkgs.lib.getExe' pkgs.wl-clipboard "wl-paste"}";
+  };
 }
