@@ -227,13 +227,9 @@
       nssmdns4 = true;
       ipv4 = true;
       ipv6 = true;
-      publish = {
-        enable = true;
-        addresses = true;
-        workstation = true;
-        userServices = true;
-        hinfo = true;
-        domain = true;
+      settings.publish = {
+        "disable-publishing" = false;
+        "publish-addresses" = true;
       };
     };
     udev.extraRules = ''
