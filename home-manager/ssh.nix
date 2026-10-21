@@ -3,26 +3,28 @@
 #
 # topology:
 #
-#   bellona   the only tailscale node in the house (shared tailnet node,
-#             giraffa-richter.ts.net) — so it is the jump host for everything
-#             else in the building.
-#   phobos    spark head. reachable on the house LAN (mdns) and jumps through
-#             bellona so the same entry works from anywhere.
-#   deimos    spark worker. has NO house-LAN presence at all: it lives on the
-#             point-to-point 192.168.100/101 fabrics phobos↔deimos, and its
-#             avahi announcement is only visible from phobos. so it is a
-#             two-hop jump: bellona → phobos → deimos. the explicit
-#             user@hop chain is deliberate — ProxyJump does not reliably
-#             recurse through the jump host's own config.
-#   luna      desktop. on the house LAN + its own tailnet node, but the entry
-#             jumps through bellona so it resolves from outside the house too
-#             (the LAN name is mdns, which doesn't route).
+#   bellona   dahlia's box upstairs, a node shared in from her tailnet
+#             (giraffa-richter.ts.net).
+#   phobos    spark head, in our tailnet: its magicdns name works from
+#             anywhere in it, unlike the LAN-only mdns name.
+#   deimos    spark worker. has NO tailnet or house-LAN presence at all: it
+#             lives on the point-to-point 192.168.100/101 fabrics
+#             phobos↔deimos, and its avahi announcement is only visible from
+#             phobos. so it is a jump through phobos. the explicit user@hop is
+#             deliberate — ProxyJump does not reliably recurse through the
+#             jump host's own config.
+#   luna      desktop, in our tailnet: magicdns name, same reason as phobos.
 #   hermes    framework laptop, roams; tailnet magicdns name only.
-#   iris      macbook, mdns on whatever network it's on (unchanged).
+#   iris      macbook, mdns on whatever network it's on.
 #   promise   win11 arm64. tailnet node is `promise-1` (the old
 #             promise.tail…name is stale); the ts route is often down, in
 #             which case it is LAN-only and reached by IP.
-#   window    windows box, usually off. mdns name window.local when up.
+#   window    windows box, usually off, no tailnet node: LAN only, by its
+#             mdns name window.local.
+#
+# a jump host resolves the next hop's name with ITS OWN resolver. do not jump
+# through bellona to a .local name: it runs no mdns, and its tailscale ssh
+# resolves via 100.100.100.100, which has no .local.
 #
 # every machine's pubkey is authorized on every other one — see
 # ssh-pubkeys.nix (`mesh`) — so any host entry works from any machine with
@@ -49,7 +51,7 @@
         userKnownHostsFile = "~/.ssh/known_hosts";
       };
 
-      # ── the jump host. everything in the house goes through here. ──
+      # ── dahlia's box ──
       # cross-tailnet magicdns (…giraffa-richter.ts.net) does NOT resolve
       # reliably from our resolver, so use the tailnet IP: per-node, stable.
       bellona = {
@@ -57,29 +59,23 @@
         user = "ethernet";
       };
 
-      # ── house, behind the jump ──
+      # ── house ──
       phobos = {
-        hostname = "phobos.local";
+        hostname = "phobos.tail5b83ba.ts.net";
         user = "ethernet";
-        proxyJump = "bellona";
       };
       deimos = {
         hostname = "deimos.local";
         user = "ethernet";
-        # two hops, explicit: bellona → phobos → deimos. each hop's hostname
-        # is resolved by the previous hop's resolver (deimos.local only
-        # resolves from phobos).
-        proxyJump = "ethernet@bellona,ethernet@phobos.local";
+        proxyJump = "ethernet@phobos.tail5b83ba.ts.net";
       };
       luna = {
-        hostname = "luna.local";
+        hostname = "luna.tail5b83ba.ts.net";
         user = "ethie";
-        proxyJump = "bellona";
       };
       window = {
         hostname = "window.local";
         user = "laser";
-        proxyJump = "bellona";
       };
 
       # ── roamers / remote, direct ──
