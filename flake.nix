@@ -18,10 +18,6 @@
       flake = false;
       url = "file+https://userstyles.catppuccin.com/lib/std/v1.less";
     };
-    fido2-hid-bridge = {
-      inputs.nixpkgs.follows = "nixpkgs";
-      url = "github:arilotter/fido2-hid-bridge-flake";
-    };
     flakegen.url = "github:jorsn/flakegen";
     fw-inputmodule = {
       inputs.nixpkgs.follows = "nixpkgs";

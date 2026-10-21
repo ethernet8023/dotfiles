@@ -85,7 +85,7 @@
           "nixpkgs"
         ],
         "purescript-overlay": "purescript-overlay",
-        "pyproject-nix": "pyproject-nix_3"
+        "pyproject-nix": "pyproject-nix_2"
       },
       "locked": {
         "lastModified": 1779999259,
@@ -98,29 +98,6 @@
       "original": {
         "owner": "nix-community",
         "repo": "dream2nix",
-        "type": "github"
-      }
-    },
-    "fido2-hid-bridge": {
-      "inputs": {
-        "nixpkgs": [
-          "nixpkgs"
-        ],
-        "pyproject-build-systems": "pyproject-build-systems",
-        "pyproject-nix": "pyproject-nix",
-        "uv2nix": "uv2nix"
-      },
-      "locked": {
-        "lastModified": 1771890059,
-        "narHash": "sha256-dpTyR/MO+TfKpZ5kJr4KX6d8GCcyx4ogjj15hBJCBn0=",
-        "owner": "arilotter",
-        "repo": "fido2-hid-bridge-flake",
-        "rev": "5e67a775c608c81c837a2ce6e38fbe0fe00c4a16",
-        "type": "github"
-      },
-      "original": {
-        "owner": "arilotter",
-        "repo": "fido2-hid-bridge-flake",
         "type": "github"
       }
     },
@@ -364,9 +341,9 @@
         "home-manager": "home-manager",
         "nixpkgs": "nixpkgs_2",
         "npm-lockfile-fix": "npm-lockfile-fix",
-        "pyproject-build-systems": "pyproject-build-systems_2",
-        "pyproject-nix": "pyproject-nix_2",
-        "uv2nix": "uv2nix_2"
+        "pyproject-build-systems": "pyproject-build-systems",
+        "pyproject-nix": "pyproject-nix",
+        "uv2nix": "uv2nix"
       },
       "locked": {
         "lastModified": 1792043576,
@@ -766,35 +743,6 @@
     "pyproject-build-systems": {
       "inputs": {
         "nixpkgs": [
-          "fido2-hid-bridge",
-          "nixpkgs"
-        ],
-        "pyproject-nix": [
-          "fido2-hid-bridge",
-          "pyproject-nix"
-        ],
-        "uv2nix": [
-          "fido2-hid-bridge",
-          "uv2nix"
-        ]
-      },
-      "locked": {
-        "lastModified": 1771423342,
-        "narHash": "sha256-7uXPiWB0YQ4HNaAqRvVndYL34FEp1ZTwVQHgZmyMtC8=",
-        "owner": "pyproject-nix",
-        "repo": "build-system-pkgs",
-        "rev": "04e9c186e01f0830dad3739088070e4c551191a4",
-        "type": "github"
-      },
-      "original": {
-        "owner": "pyproject-nix",
-        "repo": "build-system-pkgs",
-        "type": "github"
-      }
-    },
-    "pyproject-build-systems_2": {
-      "inputs": {
-        "nixpkgs": [
           "hermes-agent",
           "nixpkgs"
         ],
@@ -824,27 +772,6 @@
     "pyproject-nix": {
       "inputs": {
         "nixpkgs": [
-          "fido2-hid-bridge",
-          "nixpkgs"
-        ]
-      },
-      "locked": {
-        "lastModified": 1771518446,
-        "narHash": "sha256-nFJSfD89vWTu92KyuJWDoTQJuoDuddkJV3TlOl1cOic=",
-        "owner": "pyproject-nix",
-        "repo": "pyproject.nix",
-        "rev": "eb204c6b3335698dec6c7fc1da0ebc3c6df05937",
-        "type": "github"
-      },
-      "original": {
-        "owner": "pyproject-nix",
-        "repo": "pyproject.nix",
-        "type": "github"
-      }
-    },
-    "pyproject-nix_2": {
-      "inputs": {
-        "nixpkgs": [
           "hermes-agent",
           "nixpkgs"
         ]
@@ -863,7 +790,7 @@
         "type": "github"
       }
     },
-    "pyproject-nix_3": {
+    "pyproject-nix_2": {
       "inputs": {
         "nixpkgs": [
           "tapbridge",
@@ -891,7 +818,6 @@
         "base16": "base16",
         "catppuccin-userstyles-export": "catppuccin-userstyles-export",
         "catppuccin-userstyles-lib": "catppuccin-userstyles-lib",
-        "fido2-hid-bridge": "fido2-hid-bridge",
         "flakegen": "flakegen",
         "fw-inputmodule": "fw-inputmodule",
         "hermes-agent": "hermes-agent",
@@ -1087,31 +1013,6 @@
       }
     },
     "uv2nix": {
-      "inputs": {
-        "nixpkgs": [
-          "fido2-hid-bridge",
-          "nixpkgs"
-        ],
-        "pyproject-nix": [
-          "fido2-hid-bridge",
-          "pyproject-nix"
-        ]
-      },
-      "locked": {
-        "lastModified": 1771808991,
-        "narHash": "sha256-boRfTlN1GfVupWPnhcKlSHJzs9/lJP9KltycPLoPRbA=",
-        "owner": "pyproject-nix",
-        "repo": "uv2nix",
-        "rev": "44d9a110d65fc4caaf9349fa819e8daf9d90d074",
-        "type": "github"
-      },
-      "original": {
-        "owner": "pyproject-nix",
-        "repo": "uv2nix",
-        "type": "github"
-      }
-    },
-    "uv2nix_2": {
       "inputs": {
         "nixpkgs": [
           "hermes-agent",

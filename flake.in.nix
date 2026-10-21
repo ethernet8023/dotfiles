@@ -23,7 +23,6 @@
       hypr-contrib = followsNixpkgs "github:hyprwm/contrib";
       vscode-ext = followsNixpkgs "github:nix-community/nix-vscode-extensions";
       # beepy = followsNixpkgs "github:arilotter/nixos-beepy";
-      fido2-hid-bridge = followsNixpkgs "github:arilotter/fido2-hid-bridge-flake";
       # phone as NFC reader + virtual FIDO key. feat/linux until it merges to main.
       tapbridge = followsNixpkgs "github:ethernet8023/tapbridge/feat/linux";
       fw-inputmodule = followsNixpkgs "github:caffineehacker/nix?dir=flakes/inputmodule-rs";
@@ -63,7 +62,6 @@
       nixpkgs,
       home-manager,
       agenix,
-      fido2-hid-bridge,
       ...
     }@inputs:
     let
@@ -78,7 +76,6 @@
       base-modules = [
         agenix.nixosModules.default
         nur.modules.nixos.default
-        fido2-hid-bridge.nixosModules.default
         home-manager.nixosModules.home-manager
         { home-manager.extraSpecialArgs = { inherit inputs; }; }
         ./nixos/all-systems-configuration.nix
@@ -237,7 +234,6 @@
         #       # todo: hardware quirks
         #       ./nixos/hecate/hardware-configuration.nix
         #       ./nixos/hecate/configuration.nix
-        #       ./nixos/mount-sol-samba-share.nix
         #     ];
         #   }
         # );
