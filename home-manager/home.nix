@@ -51,7 +51,6 @@
     jdk11 # java
     wabt # webassembly binary tools
     google-cloud-sdk # google cloud sdk
-    awscli # aws cli
     ansible # ansible devops bullshit
     nixd
     ast-grep
