@@ -8,20 +8,8 @@ in
       keys.hermes
     ];
   };
-
-  # samba password, used by bellona's ether-infra (nixos/dollnet/ethernet-infra.nix).
-  # historical name: it used to belong to sol's samba.
-  "sol-smbpasswd.age" = {
-    publicKeys = [
-      keys.luna
-      keys.bellona-user
-    ];
-  };
   "netrc.age" = {
     publicKeys = keys.home-devices;
-  };
-  "digitalocean-token.age" = {
-    publicKeys = keys.home-devices ++ [ keys.dollnet ];
   };
   # vanta device monitor, luna + hermes only (nixos/vanta/module.nix)
   "vanta.age" = {

@@ -105,7 +105,6 @@
       # uses. by IP because this box has no mDNS resolver (fresh nixos, no
       # avahi) and phobos's dhcp leases wander; if the lease moves, update
       # here -- or give bellona avahi and go back to phobos.local.
-      # (the old qwen-via-localhost ollama died with dahlia's fresh start.)
       model = {
         default = "GLM-5.3-Flash-EXL3";
         base_url = "http://192.168.2.159:8888/v1";
@@ -117,14 +116,5 @@
     # discord secrets stay out of the nix store. created by hand, chmod 0600:
     #   DISCORD_BOT_TOKEN, DISCORD_HOME_CHANNEL
     environmentFiles = [ "${config.home.homeDirectory}/.config/hermes/secrets.env" ];
-  };
-
-  programs.beets = {
-    enable = true;
-    settings = {
-      directory = "/mnt/storage/music-sorted";
-      library = "/mnt/storage/music.db";
-      import.move = true;
-    };
   };
 }

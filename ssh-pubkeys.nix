@@ -1,11 +1,7 @@
-# ssh keys. two distinct families, keep them straight:
-#
-#   1. per-machine USER keys -- the id_ed25519 generated on each box, used for
-#      machine->machine auth. every machine in `mesh` authorizes all of
-#      `mesh` (see nixos/all-systems-configuration.nix), so any host entry in
-#      home-manager/ssh.nix works from any machine.
-#   2. the dollnet HOST key -- an age identity for that box, used only as an
-#      agenix recipient in secrets/secrets.nix. never for ssh auth.
+# ssh keys: the per-machine USER keys -- the id_ed25519 generated on each box,
+# used for machine->machine auth. every machine in `mesh` authorizes all of
+# `mesh` (see nixos/all-systems-configuration.nix), so any host entry in
+# home-manager/ssh.nix works from any machine.
 rec {
   # ── user keys ──
   luna = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIIL+5IDeIKvYpQllVsU/soRu27KyPTA5FXvZM5Z8+ms7 arilotter@gmail.com";
@@ -20,7 +16,7 @@ rec {
   # promise -- windows arm64; keypair generated on the box
   promise = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILdhWXhyj4XlpWsgtdhnVQoRsePkekikby69I1NNI1l4 arilotter@gmail.com";
 
-  # ethernet's USER key on dollnet (the host key is `dollnet` below)
+  # ethernet's USER key on bellona
   bellona-user = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAII07YJjVEXOI7taW500PJ1j6hPI+mHoJNWxXG90/6SL+ arilotter@gmail.com";
 
   # window (windows box, user laser) was offline at last edit; when it's up:
@@ -30,10 +26,6 @@ rec {
   # ── external / shared keys ──
   android = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOUl42TMh18ALGzChA0v1BQ6vzOJYmqt3EdFeuMaS0vD";
   nous-eng = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGifAl2SGcrIZEHkV6hm+zJ7DfyE3Q4MJcqCR0hWgqE5 engineering@nousresearch.com";
-
-  # ── bellona host key (age identity on that box; from
-  #    /home/shared/flake/secrets/secrets.nix over there) ──
-  dollnet = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOZObFRctpO7wpK79eNYpw4YVLEgGRFo+XB0C1XL2Z/B";
 
   # ── categories ──
   # the mesh: authorized on every machine in it (nixos boxes add
@@ -48,7 +40,7 @@ rec {
     bellona-user
   ];
 
-  # agenix recipients: th desktops/laptops + bellona (samba password, ddns token)
+  # agenix recipients: th desktops/laptops
   home-devices = [
     luna
     hermes

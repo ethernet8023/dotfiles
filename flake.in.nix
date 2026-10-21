@@ -154,8 +154,6 @@
       # NixOS modules importable by other flakes. same principle as homeModules:
       # plain module paths, no nixpkgs of mine leaks through.
       nixosModules = {
-        dollnet-infra = ./nixos/dollnet/ethernet-infra.nix;
-
         # everything ethernet on bellona (dahlia's box, nee dollnet): the user
         # account plus the ENTIRE home-manager stack, with home-manager itself
         # dragged in from OUR pin so her fresh-start flake stays two inputs

@@ -73,11 +73,9 @@
       deimos = {
         hostname = "deimos.local";
         user = "ethernet";
-        # two hops, explicit: dollnet → phobos → deimos. the intermediate hop
-        # is fully-qualified on purpose: jump-hop hostnames are resolved by the
-        # previous hop's resolver, and plain `phobos` has no search domain
-        # there — only the mdns name, which dollnet gets from avahi
-        # (ethernet-infra.nix) and phobos announces natively.
+        # two hops, explicit: dollnet → phobos → deimos. each hop's hostname
+        # is resolved by the previous hop's resolver (deimos.local only
+        # resolves from phobos).
         proxyJump = "ethernet@dollnet,ethernet@phobos.local";
       };
       luna = {

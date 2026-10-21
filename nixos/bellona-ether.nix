@@ -12,10 +12,6 @@
 # the wrapper (flake.in.nix) drags home-manager in from OUR pin and hands
 # hermes-agent to the hm module from our lock too, so her flake stays two
 # inputs light (nixpkgs + nixos-hardware).
-#
-# deliberately NOT resurrected here: the samba/avahi/minidlna/govee stack the
-# old dollnet-infra module carried — the fresh start dropped it; re-add here
-# if ethernet wants any of it back on this box.
 {
   config,
   pkgs,
