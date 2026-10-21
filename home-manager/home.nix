@@ -83,7 +83,7 @@
   };
 
   # ssh client config + host entries live in ./ssh.nix (shared with the
-  # headless home-server profile so dollnet gets the same mesh).
+  # headless home-server profile so bellona gets the same mesh).
 
   programs.fish = {
     enable = true;

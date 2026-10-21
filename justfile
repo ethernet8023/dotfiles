@@ -49,27 +49,17 @@ clean:
 fmt:
   nix fmt .
 
-# ── bellona (dahlia's box; nee "dollnet" — renamed 2026-10-16) ─────────
-# the box's SYSTEM config lives in the ~/dotfiles-dollnet clone of
-# ethernet8023/dollnet-dotfiles, checked out on the box at /home/shared/flake.
-# my own user config reaches it as that flake's `ethie-dotfiles` input, so:
-# change dotfiles here -> push -> `just dollnet-update-input` -> `just dollnet-switch`.
+# ── bellona (dahlia's box) ───────────────────────────────────────────────
+# the box's SYSTEM config is dahlia's flake, checked out on the box at
+# /home/shared/flake. my own user config reaches it as that flake's
+# `ethie-dotfiles` input, so:
+# change dotfiles here -> push -> `just bellona-update-input` -> `just deploy-fleet bellona`.
 
 # bump the ethie-dotfiles pin on the box and push the lockfile commit
-dollnet-update-input:
+bellona-update-input:
   #!/usr/bin/env bash
   set -euo pipefail
   ssh bellona 'cd /home/shared/flake && git pull --ff-only && nix flake update ethie-dotfiles && git add flake.lock && git -c user.name=ethernet -c user.email=arilotter@gmail.com commit -m "pin: bump ethie-dotfiles" && git push'
-
-# deploy: sync both checkouts, build the closure here, switch it there.
-# asks for the box's sudo password once (over the tty NIX_SSHOPTS=-t allocates).
-dollnet-switch *args:
-  #!/usr/bin/env bash
-  set -euo pipefail
-  git -C "$HOME/dotfiles-dollnet" pull --ff-only
-  ssh bellona 'git -C /home/shared/flake pull --ff-only' \
-    || echo "!! box checkout dirty; skipped pull -- reconcile /home/shared/flake by hand"
-  NIX_SSHOPTS=-t nixos-rebuild switch --flake "$HOME/dotfiles-dollnet#dollnet" --use-remote-sudo -L {{args}}
 
 # ── fleet ────────────────────────────────────────────────────────────────
 # luna    nixos — built + switched right here (sudo prompts locally)
@@ -137,7 +127,7 @@ deploy-fleet *hosts:
     else
       $B 'git -C /home/shared/flake pull --ff-only' || echo "   pull failed, building stale checkout"
       attr=$($B 'grep -oE "nixosConfigurations\.[A-Za-z0-9_-]+" /home/shared/flake/flake.nix | head -1 | cut -d. -f2')
-      ssh -F none -t ethernet@100.95.51.7 "sudo nixos-rebuild switch --flake /home/shared/flake#${attr:-dollnet} -L" \
+      ssh -F none -t ethernet@100.95.51.7 "sudo nixos-rebuild switch --flake /home/shared/flake#${attr:-bellona} -L" \
         || echo "   deploy failed (see above)"
     fi
   fi

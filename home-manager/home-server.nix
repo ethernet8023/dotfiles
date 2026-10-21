@@ -4,7 +4,7 @@
 }:
 {
   # slim home profile for headless boxes: servers, and machines that aren't mine
-  # (dollnet). home.nix is the desktop profile -- it drags in telegram-desktop,
+  # (bellona). home.nix is the desktop profile -- it drags in telegram-desktop,
   # google-cloud-sdk, jdk11, ansible, awscli, imagemagickBig, gdb/lldb, devenv.
   # none of that belongs on a shared server, so this is a parallel profile
   # rather than an import of home.nix.

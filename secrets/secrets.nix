@@ -21,7 +21,7 @@ in
 
   # shared hermes gateway session token: bellona's dashboard backend validates
   # it, and the desktops presenting it read their copy via age on each host.
-  # see home-manager/hosts/dollnet.nix (backend.sessionTokenFile).
+  # see home-manager/hosts/bellona.nix (backend.sessionTokenFile).
   "hermes-gateway-token.age" = {
     publicKeys = keys.home-devices ++ [ keys.bellona-user ];
   };

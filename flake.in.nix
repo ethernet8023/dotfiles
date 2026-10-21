@@ -123,26 +123,17 @@
       formatter.x86_64-linux = nixpkgs.legacyPackages.x86_64-linux.nixfmt;
       formatter.aarch64-darwin = nixpkgs.legacyPackages.aarch64-darwin.nixfmt;
 
-      # importable by other flakes (e.g. dollnet, which isn't mine and only
-      # wants my home config for the `ethernet` user). these are plain module
-      # paths -- no nixpkgs of mine leaks through them, so a consumer evaluates
-      # them against their own.
+      # importable by other flakes. these are plain module paths -- no nixpkgs
+      # of mine leaks through them, so a consumer evaluates them against their
+      # own.
       #
-      # `dollnet` is the whole config for ethernet@dollnet and bundles its own
-      # imports, so her flake needs exactly one entry. it wants
-      # `hermes-agent-package` in extraSpecialArgs -- see the comment at the top
-      # of home-manager/hosts/dollnet.nix for why the package is injected rather
-      # than pinned here.
-      #
-      # the hermes-agent module itself is no longer carried here: upstream ships
-      # `homeManagerModules.default` now, which absorbed everything this repo's
-      # port had except the backend hostname/interface wait. consumers import it
-      # from github:NousResearch/hermes-agent directly.
+      # there is deliberately no hermes-agent module here: consumers import
+      # upstream's `homeManagerModules.default` from
+      # github:NousResearch/hermes-agent directly.
       #
       # `server` expects home.username / home.homeDirectory from the consumer,
       # since identity.nix only applies to my own hosts.
       homeModules = {
-        dollnet = ./home-manager/hosts/dollnet.nix;
         server = ./home-manager/home-server.nix;
 
         # Generates a Hermes skin from the active base16 scheme and selects
@@ -154,10 +145,10 @@
       # NixOS modules importable by other flakes. same principle as homeModules:
       # plain module paths, no nixpkgs of mine leaks through.
       nixosModules = {
-        # everything ethernet on bellona (dahlia's box, nee dollnet): the user
-        # account plus the ENTIRE home-manager stack, with home-manager itself
-        # dragged in from OUR pin so her fresh-start flake stays two inputs
-        # light. see nixos/bellona-ether.nix for the split of duties.
+        # everything ethernet on bellona (dahlia's box): the user account plus
+        # the ENTIRE home-manager stack, with home-manager itself dragged in
+        # from OUR pin so her flake stays two inputs light. see
+        # nixos/bellona-ether.nix for the split of duties.
         bellona =
           { pkgs, ... }:
           {

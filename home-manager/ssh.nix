@@ -1,21 +1,21 @@
 # home-manager/ssh.nix — the shared ssh CLIENT config, identical on every
 # machine (imported by both home.nix and home-server.nix).
 #
-# topology (as of 2026-10):
+# topology:
 #
-#   dollnet   the only tailscale node in the house (shared tailnet node,
+#   bellona   the only tailscale node in the house (shared tailnet node,
 #             giraffa-richter.ts.net) — so it is the jump host for everything
 #             else in the building.
 #   phobos    spark head. reachable on the house LAN (mdns) and jumps through
-#             dollnet so the same entry works from anywhere.
+#             bellona so the same entry works from anywhere.
 #   deimos    spark worker. has NO house-LAN presence at all: it lives on the
 #             point-to-point 192.168.100/101 fabrics phobos↔deimos, and its
 #             avahi announcement is only visible from phobos. so it is a
-#             two-hop jump: dollnet → phobos → deimos. the explicit
+#             two-hop jump: bellona → phobos → deimos. the explicit
 #             user@hop chain is deliberate — ProxyJump does not reliably
 #             recurse through the jump host's own config.
 #   luna      desktop. on the house LAN + its own tailnet node, but the entry
-#             jumps through dollnet so it resolves from outside the house too
+#             jumps through bellona so it resolves from outside the house too
 #             (the LAN name is mdns, which doesn't route).
 #   hermes    framework laptop, roams; tailnet magicdns name only.
 #   iris      macbook, mdns on whatever network it's on (unchanged).
@@ -57,36 +57,29 @@
         user = "ethernet";
       };
 
-      # renamed from dollnet 2026-10-16 (hostname + mdns are `bellona` now);
-      # alias kept for muscle memory and the spark boxes' pushed configs
-      dollnet = {
-        hostname = "100.95.51.7";
-        user = "ethernet";
-      };
-
       # ── house, behind the jump ──
       phobos = {
         hostname = "phobos.local";
         user = "ethernet";
-        proxyJump = "dollnet";
+        proxyJump = "bellona";
       };
       deimos = {
         hostname = "deimos.local";
         user = "ethernet";
-        # two hops, explicit: dollnet → phobos → deimos. each hop's hostname
+        # two hops, explicit: bellona → phobos → deimos. each hop's hostname
         # is resolved by the previous hop's resolver (deimos.local only
         # resolves from phobos).
-        proxyJump = "ethernet@dollnet,ethernet@phobos.local";
+        proxyJump = "ethernet@bellona,ethernet@phobos.local";
       };
       luna = {
         hostname = "luna.local";
         user = "ethie";
-        proxyJump = "dollnet";
+        proxyJump = "bellona";
       };
       window = {
         hostname = "window.local";
         user = "laser";
-        proxyJump = "dollnet";
+        proxyJump = "bellona";
       };
 
       # ── roamers / remote, direct ──
