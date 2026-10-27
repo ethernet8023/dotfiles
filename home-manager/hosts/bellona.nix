@@ -108,13 +108,14 @@ in
     };
 
     settings = {
-      # inference on the spark pair: phobos heads GLM-5.3-Flash EXL3 (4bpw,
-      # deimos drafts), exposed on :8888 -- same endpoint luna's `spark` alias
+      # inference on the spark pair: DeepSeek-V4.1-Flash-1017 (EXL3 2.9bpw,
+      # tensor-parallel, phobos rank 0 + deimos rank 1), exposed on phobos
+      # :8888 -- same endpoint luna's `spark` alias
       # uses. by IP because this box has no mDNS resolver (no avahi) and
       # phobos's dhcp leases wander; if the lease moves, update here -- or
       # give bellona avahi and go back to phobos.local.
       model = {
-        default = "GLM-5.3-Flash-EXL3";
+        default = "DeepSeek-V4.1-Flash-1017";
         base_url = "http://192.168.2.159:8888/v1";
         provider = "custom";
         api_key = "local";

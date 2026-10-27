@@ -81,12 +81,13 @@
       sessionTokenFile = "${config.home.homeDirectory}/.config/hermes/session-token";
     };
 
-    # GLM-5.3-Flash on the Spark pair (phobos head + deimos worker, CX7
-    # fabric). Alias only -- the default model stays nous; `/model spark`
-    # switches for the session, `--global` to persist. mDNS name on purpose:
-    # DHCP moves the .154 lease around; avahi tracks it.
+    # DeepSeek-V4.1-Flash-1017 on the Spark pair (phobos head + deimos worker,
+    # CX7 fabric; MiaAI-Lab's TensorFold recipe, EAQ v1 + abliterated overlay).
+    # Alias only -- the default model stays nous; `/model spark` switches for
+    # the session, `--global` to persist. mDNS name on purpose: DHCP moves the
+    # .154 lease around; avahi tracks it.
     settings.model_aliases.spark = {
-      model = "GLM-5.3-Flash-EXL3";
+      model = "DeepSeek-V4.1-Flash-1017";
       provider = "custom";
       base_url = "http://phobos.local:8888/v1";
       api_key = "local";
