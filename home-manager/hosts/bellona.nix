@@ -1,8 +1,24 @@
 {
   config,
+  pkgs,
   hermes-agent-package,
   ...
 }:
+let
+  # first-start config for qbittorrent-nox (the unit at the bottom)
+  qbittorrentConf = pkgs.writeText "qBittorrent.conf" ''
+    [LegalNotice]
+    Accepted=true
+
+    [Preferences]
+    WebUI\Address=127.0.0.1
+    WebUI\LocalHostAuth=false
+  '';
+  qbittorrentSeedConfig = pkgs.writeShellScript "qbittorrent-seed-config" ''
+    conf="''${XDG_CONFIG_HOME:-$HOME/.config}/qBittorrent/qBittorrent.conf"
+    [ -e "$conf" ] || ${pkgs.coreutils}/bin/install -Dm600 ${qbittorrentConf} "$conf"
+  '';
+in
 {
   # ethernet@bellona -- the complete home config for my account on dahlia's box.
   #
@@ -108,5 +124,25 @@
     # discord secrets stay out of the nix store. created by hand, chmod 0600:
     #   DISCORD_BOT_TOKEN, DISCORD_HOME_CHANNEL
     environmentFiles = [ "${config.home.homeDirectory}/.config/hermes/secrets.env" ];
+  };
+
+  # qbittorrent-nox seeds the pirateface.co torrents in ~/pirateface-seeds. a
+  # user unit so it reads my files with no sudo; linger (nixos/bellona-ether.nix)
+  # keeps it running while i'm logged out.
+  #
+  # qbittorrent rewrites its own config at runtime, so that can't be a
+  # read-only store symlink: ExecStartPre writes it only when it's missing, and
+  # anything changed in the web UI sticks. both settings in it are for
+  # pirateface's package.sh, which adds torrents through the web API with no
+  # credentials: the UI listens on 127.0.0.1 only, and localhost skips the
+  # login. the price: anything running on bellona can drive it.
+  systemd.user.services.qbittorrent-nox = {
+    Unit.Description = "qBittorrent-nox (pirateface seeding)";
+    Service = {
+      ExecStartPre = "${qbittorrentSeedConfig}";
+      ExecStart = "${pkgs.qbittorrent-nox}/bin/qbittorrent-nox --confirm-legal-notice --webui-port=8080";
+      Restart = "on-failure";
+    };
+    Install.WantedBy = [ "default.target" ];
   };
 }
