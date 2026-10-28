@@ -51,11 +51,10 @@ in
       secrets.hermes-gateway-token = {
         file = ../secrets/hermes-gateway-token.age;
         # absolute path, NOT the module default "${XDG_RUNTIME_DIR}/agenix/...":
-        # hermes-backend's launcher escapeShellArgs the token path, so the
-        # placeholder stays a literal, the -r check always fails, and the unit
-        # crash-loops without ever binding (nothing on :9119). expandable in
-        # the launcher upstream since NousResearch/hermes-agent#146090, but
-        # this pins a path that works on every release. uid 1001 = ethernet.
+        # the module passes the path to the backend verbatim as
+        # HERMES_DASHBOARD_SESSION_TOKEN=file:<path> (#146093/#146104, merged),
+        # and a placeholder would pass through unexpanded and 401 the desktop.
+        # pin /run/user/<uid>/agenix/<name>. uid 1001 = ethernet.
         path = "/run/user/1001/agenix/hermes-gateway-token";
       };
     };
