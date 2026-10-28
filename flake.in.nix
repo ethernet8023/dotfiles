@@ -49,9 +49,7 @@
       # nixpkgs it pins and tests with, so overriding that input breaks the
       # build. It therefore brings its own nixpkgs -- see the exemption in
       # checks.checkNixpkgsVersions below.
-      # Pre-merge pin of #146139 (session-token dashboard-auth provider). REPIN to
-      # main when the PR lands — this rev lives on a feature branch.
-      hermes-agent.url = "github:NousResearch/hermes-agent/93752abd33fe0036908550e4db8618f13258752c";
+      hermes-agent.url = "github:NousResearch/hermes-agent/780d5a3313d7e1f64c0a0f3ec6b644d50f156e90";
       vscode-server.url = "github:nix-community/nixos-vscode-server";
       noctalia = followsNixpkgs "github:noctalia-dev/noctalia";
       noctalia-appmenu = followsNixpkgs "github:yolo-labz/noctalia-appmenu";
