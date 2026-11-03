@@ -4,6 +4,21 @@
   pkgs,
   ...
 }:
+let
+  # The Spark pair (phobos head + deimos worker, CX7 fabric; MiaAI-Lab's
+  # TensorFold recipe, EAQ v1 + abliterated overlay) is the only inference
+  # this box uses, so this endpoint is both the default and the `spark` alias.
+  # One binding on purpose: the two used to carry the model name separately and
+  # drifted apart (GLM-5.3 here, DeepSeek on bellona) whenever the pair got
+  # re-served.
+  #
+  # mDNS name on purpose: DHCP moves the .154 lease around; avahi tracks it.
+  spark = {
+    base_url = "http://phobos.local:8888/v1";
+    provider = "custom";
+    api_key = "local";
+  };
+in
 {
   # luna-specific home config: the desktop with two 27" monitors, both mounted
   # physically portrait -- a 4K on the right and a 1440p on the left.
@@ -81,16 +96,18 @@
       sessionTokenFile = "${config.home.homeDirectory}/.config/hermes/session-token";
     };
 
-    # DeepSeek-V4.1-Flash-1017 on the Spark pair (phobos head + deimos worker,
-    # CX7 fabric; MiaAI-Lab's TensorFold recipe, EAQ v1 + abliterated overlay).
-    # Alias only -- the default model stays nous; `/model spark` switches for
-    # the session, `--global` to persist. mDNS name on purpose: DHCP moves the
-    # .154 lease around; avahi tracks it.
-    settings.model_aliases.spark = {
+    # No nous portal login on this box: `hermes login` writes
+    # `model.provider: nous` + the portal base_url into config.yaml, and the
+    # module's settings merge is the only thing that can put it back. Pinning
+    # the whole model block to the Spark endpoint every activation means the
+    # local pair stays the default no matter what a login flow or the settings
+    # pane did at runtime. The alias stays so `/model spark` keeps working for
+    # scripts and muscle memory.
+    settings.model = spark // {
+      default = "DeepSeek-V4.1-Flash-1017";
+    };
+    settings.model_aliases.spark = spark // {
       model = "DeepSeek-V4.1-Flash-1017";
-      provider = "custom";
-      base_url = "http://phobos.local:8888/v1";
-      api_key = "local";
     };
   };
 
