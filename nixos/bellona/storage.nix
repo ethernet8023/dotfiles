@@ -67,10 +67,10 @@ in
         "zfs-import-tank.service"
         "zfs-mount.service"
       ];
+      unitConfig.DefaultDependencies = false;
       serviceConfig = {
         Type = "oneshot";
         RemainAfterExit = true;
-        DefaultDependencies = false;
       };
       script = ''
         set -euo pipefail
@@ -80,21 +80,28 @@ in
         done
         ${pkgs.kmod}/bin/modprobe zfs || true
         if ! ${pkgs.zfs}/bin/zpool list -H tank >/dev/null 2>&1; then
-          ${pkgs.util-linux}/bin/wipefs -a ${disk}
-          ${pkgs.zfs}/bin/zpool create -f -o ashift=12 \
-            -O compression=zstd -O atime=off -O xattr=sa tank ${disk}
-          ${pkgs.zfs}/bin/zfs create -o mountpoint=/tank/media -o recordsize=1M tank/media
-          ${pkgs.zfs}/bin/zfs create -o mountpoint=/tank/photos -o recordsize=1M tank/photos
-          ${pkgs.zfs}/bin/zfs create -o mountpoint=/tank/music -o recordsize=1M tank/music
-          ${pkgs.zfs}/bin/zfs create -o mountpoint=/tank/music/library tank/music/library
-          ${pkgs.zfs}/bin/zfs create -o mountpoint=/tank/music/inbox tank/music/inbox
-          ${pkgs.zfs}/bin/zfs create -o mountpoint=/tank/music/archive tank/music/archive
-          ${pkgs.zfs}/bin/zfs create -o mountpoint=/tank/rekordbox tank/rekordbox
-          ${pkgs.zfs}/bin/zfs create -o mountpoint=/tank/traces tank/traces
-          ${pkgs.zfs}/bin/zfs create -o mountpoint=/tank/logs tank/logs
-          ${pkgs.zfs}/bin/zfs create -o mountpoint=/tank/vault -o recordsize=128K tank/vault
-          ${pkgs.zfs}/bin/zfs create -o mountpoint=/tank/backups tank/backups
+          # pool may exist on disk but not be imported yet; try that first.
+          if ! ${pkgs.zfs}/bin/zpool import -N -d ${disk} tank >/dev/null 2>&1; then
+            ${pkgs.util-linux}/bin/wipefs -a ${disk}
+            # zpool create refuses to auto-mount over a non-empty /tank;
+            # services may have made /tank/logs or /tank/music already.
+            ${pkgs.coreutils}/bin/mkdir -p /tank
+            ${pkgs.findutils}/bin/find /tank -mindepth 1 -maxdepth 1 -exec ${pkgs.coreutils}/bin/rm -rf {} +
+            ${pkgs.zfs}/bin/zpool create -f -o ashift=12 \
+              -O compression=zstd -O atime=off -O xattr=sa tank ${disk}
+          fi
         fi
+        ${pkgs.zfs}/bin/zfs list tank/media >/dev/null 2>&1 || ${pkgs.zfs}/bin/zfs create -o mountpoint=/tank/media -o recordsize=1M tank/media
+        ${pkgs.zfs}/bin/zfs list tank/photos >/dev/null 2>&1 || ${pkgs.zfs}/bin/zfs create -o mountpoint=/tank/photos -o recordsize=1M tank/photos
+        ${pkgs.zfs}/bin/zfs list tank/music >/dev/null 2>&1 || ${pkgs.zfs}/bin/zfs create -o mountpoint=/tank/music -o recordsize=1M tank/music
+        ${pkgs.zfs}/bin/zfs list tank/music/library >/dev/null 2>&1 || ${pkgs.zfs}/bin/zfs create -o mountpoint=/tank/music/library tank/music/library
+        ${pkgs.zfs}/bin/zfs list tank/music/inbox >/dev/null 2>&1 || ${pkgs.zfs}/bin/zfs create -o mountpoint=/tank/music/inbox tank/music/inbox
+        ${pkgs.zfs}/bin/zfs list tank/music/archive >/dev/null 2>&1 || ${pkgs.zfs}/bin/zfs create -o mountpoint=/tank/music/archive tank/music/archive
+        ${pkgs.zfs}/bin/zfs list tank/rekordbox >/dev/null 2>&1 || ${pkgs.zfs}/bin/zfs create -o mountpoint=/tank/rekordbox tank/rekordbox
+        ${pkgs.zfs}/bin/zfs list tank/traces >/dev/null 2>&1 || ${pkgs.zfs}/bin/zfs create -o mountpoint=/tank/traces tank/traces
+        ${pkgs.zfs}/bin/zfs list tank/logs >/dev/null 2>&1 || ${pkgs.zfs}/bin/zfs create -o mountpoint=/tank/logs tank/logs
+        ${pkgs.zfs}/bin/zfs list tank/vault >/dev/null 2>&1 || ${pkgs.zfs}/bin/zfs create -o mountpoint=/tank/vault -o recordsize=128K tank/vault
+        ${pkgs.zfs}/bin/zfs list tank/backups >/dev/null 2>&1 || ${pkgs.zfs}/bin/zfs create -o mountpoint=/tank/backups tank/backups
         ${pkgs.zfs}/bin/zfs mount -a || true
 
         # datasets mount as root-owned; hand them to the services that write.
