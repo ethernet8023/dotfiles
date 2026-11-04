@@ -81,7 +81,7 @@ in
         ${pkgs.kmod}/bin/modprobe zfs || true
         if ! ${pkgs.zfs}/bin/zpool list -H tank >/dev/null 2>&1; then
           # pool may exist on disk but not be imported yet; try that first.
-          if ! ${pkgs.zfs}/bin/zpool import -N -d ${disk} tank >/dev/null 2>&1; then
+          if ! ${pkgs.zfs}/bin/zpool import -N -f -d ${disk} tank >/dev/null 2>&1; then
             ${pkgs.util-linux}/bin/wipefs -a ${disk}
             # zpool create refuses to auto-mount over a non-empty /tank;
             # services may have made /tank/logs or /tank/music already.
@@ -169,10 +169,14 @@ in
     };
 
     # samba and the backup job need the pool mounted before they start.
-    systemd.services.samba-smbd.after = [ "bellona-tank-init.service" ];
-    systemd.services.samba-nmbd.after = [ "bellona-tank-init.service" ];
-    systemd.services.samba-winbindd.after = [ "bellona-tank-init.service" ];
-    systemd.services.restic-backups-tank.after = [ "bellona-tank-init.service" ];
+    systemd.services.samba-smbd.after = [ "tank.mount" ];
+    systemd.services.samba-smbd.requires = [ "tank.mount" ];
+    systemd.services.samba-nmbd.after = [ "tank.mount" ];
+    systemd.services.samba-nmbd.requires = [ "tank.mount" ];
+    systemd.services.samba-winbindd.after = [ "tank.mount" ];
+    systemd.services.samba-winbindd.requires = [ "tank.mount" ];
+    systemd.services.restic-backups-tank.after = [ "tank.mount" ];
+    systemd.services.restic-backups-tank.requires = [ "tank.mount" ];
 
     networking.firewall.allowedTCPPorts = [
       139

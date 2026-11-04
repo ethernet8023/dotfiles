@@ -111,7 +111,8 @@ in
         };
       };
     };
-    systemd.services.loki.after = [ "bellona-tank-init.service" ];
+    systemd.services.loki.after = [ "tank.mount" ];
+    systemd.services.loki.requires = [ "tank.mount" ];
 
     services.alloy = {
       enable = true;

@@ -34,8 +34,10 @@ in
       # strix halo ROCm is uneven; start on CPU and measure before enabling
       # accelerationDevices = [ "/dev/dri/renderD128" ];
     };
-    systemd.services.immich-server.after = [ "bellona-tank-init.service" ];
-    systemd.services.immich-machine-learning.after = [ "bellona-tank-init.service" ];
+    systemd.services.immich-server.after = [ "tank.mount" ];
+    systemd.services.immich-server.requires = [ "tank.mount" ];
+    systemd.services.immich-machine-learning.after = [ "tank.mount" ];
+    systemd.services.immich-machine-learning.requires = [ "tank.mount" ];
 
     # ── music ─────────────────────────────────────────────────────────────
     services.navidrome = {
@@ -49,7 +51,8 @@ in
         ScanSchedule = "@every 1h";
       };
     };
-    systemd.services.navidrome.after = [ "bellona-tank-init.service" ];
+    systemd.services.navidrome.after = [ "tank.mount" ];
+    systemd.services.navidrome.requires = [ "tank.mount" ];
 
     services.slskd = {
       enable = true;
@@ -70,7 +73,8 @@ in
         soulseek.listen_port = 50300;
       };
     };
-    systemd.services.slskd.after = [ "bellona-tank-init.service" ];
+    systemd.services.slskd.after = [ "tank.mount" ];
+    systemd.services.slskd.requires = [ "tank.mount" ];
     networking.firewall.allowedTCPPorts = [
       50300
       8091
@@ -80,8 +84,9 @@ in
       description = "import slskd downloads into the beets library";
       after = [
         "network.target"
-        "bellona-tank-init.service"
+        "tank.mount"
       ];
+      requires = [ "tank.mount" ];
       serviceConfig = {
         Type = "oneshot";
         User = "ethernet";
@@ -261,7 +266,8 @@ in
         };
       };
     };
-    systemd.services.syncthing.after = [ "bellona-tank-init.service" ];
+    systemd.services.syncthing.after = [ "tank.mount" ];
+    systemd.services.syncthing.requires = [ "tank.mount" ];
 
     # ── Hermes session archive ────────────────────────────────────────────
     # "every trace" = every Hermes home. phobos/deimos do not run Hermes, so
@@ -269,7 +275,11 @@ in
     # cheap on ZFS; nothing is ever deleted.
     systemd.services.hermes-archive = {
       description = "snapshot Hermes homes to tank/traces";
-      after = [ "bellona-tank-init.service" ];
+      after = [
+        "network.target"
+        "tank.mount"
+      ];
+      requires = [ "tank.mount" ];
       serviceConfig = {
         Type = "oneshot";
         User = "ethernet";
