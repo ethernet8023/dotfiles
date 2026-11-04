@@ -34,6 +34,8 @@ in
       # strix halo ROCm is uneven; start on CPU and measure before enabling
       # accelerationDevices = [ "/dev/dri/renderD128" ];
     };
+    systemd.services.immich-server.after = [ "bellona-tank-init.service" ];
+    systemd.services.immich-machine-learning.after = [ "bellona-tank-init.service" ];
 
     # ── music ─────────────────────────────────────────────────────────────
     services.navidrome = {
@@ -47,6 +49,7 @@ in
         ScanSchedule = "@every 1h";
       };
     };
+    systemd.services.navidrome.after = [ "bellona-tank-init.service" ];
 
     services.slskd = {
       enable = true;
@@ -67,6 +70,7 @@ in
         soulseek.listen_port = 50300;
       };
     };
+    systemd.services.slskd.after = [ "bellona-tank-init.service" ];
     networking.firewall.allowedTCPPorts = [
       50300
       8091
@@ -74,7 +78,10 @@ in
 
     systemd.services.beets-import = {
       description = "import slskd downloads into the beets library";
-      after = [ "network.target" ];
+      after = [
+        "network.target"
+        "bellona-tank-init.service"
+      ];
       serviceConfig = {
         Type = "oneshot";
         User = "ethernet";
@@ -254,6 +261,7 @@ in
         };
       };
     };
+    systemd.services.syncthing.after = [ "bellona-tank-init.service" ];
 
     # ── Hermes session archive ────────────────────────────────────────────
     # "every trace" = every Hermes home. phobos/deimos do not run Hermes, so
@@ -261,6 +269,7 @@ in
     # cheap on ZFS; nothing is ever deleted.
     systemd.services.hermes-archive = {
       description = "snapshot Hermes homes to tank/traces";
+      after = [ "bellona-tank-init.service" ];
       serviceConfig = {
         Type = "oneshot";
         User = "ethernet";

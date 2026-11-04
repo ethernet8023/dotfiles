@@ -111,6 +111,7 @@ in
         };
       };
     };
+    systemd.services.loki.after = [ "bellona-tank-init.service" ];
 
     services.alloy = {
       enable = true;

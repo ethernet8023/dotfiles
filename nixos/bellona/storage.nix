@@ -32,6 +32,7 @@ in
     networking.hostId = lib.mkDefault "b3110a7e";
 
     boot.supportedFilesystems = [ "zfs" ];
+    boot.kernelModules = [ "zfs" ];
     boot.zfs.extraPools = [ "tank" ];
     boot.zfs.forceImportRoot = false;
     services.zfs.autoScrub.enable = true;
@@ -54,14 +55,22 @@ in
 
     systemd.services.bellona-tank-init = {
       description = "create the bellona tank pool and datasets";
-      wantedBy = [ "multi-user.target" ];
-      before = [
+      # DefaultDependencies=yes puts an implicit After=sysinit.target on this
+      # unit; zfs-mount sits before local-fs, local-fs before systemd-update-done,
+      # and sysinit after that, which closes a cycle. Run it without the
+      # defaults and order it explicitly before the zfs units instead.
+      wantedBy = [
+        "zfs-import-tank.service"
         "zfs-mount.service"
-        "multi-user.target"
+      ];
+      before = [
+        "zfs-import-tank.service"
+        "zfs-mount.service"
       ];
       serviceConfig = {
         Type = "oneshot";
         RemainAfterExit = true;
+        DefaultDependencies = false;
       };
       script = ''
         set -euo pipefail
@@ -69,6 +78,7 @@ in
           [ -e ${disk} ] && break
           sleep 1
         done
+        ${pkgs.kmod}/bin/modprobe zfs || true
         if ! ${pkgs.zfs}/bin/zpool list -H tank >/dev/null 2>&1; then
           ${pkgs.util-linux}/bin/wipefs -a ${disk}
           ${pkgs.zfs}/bin/zpool create -f -o ashift=12 \
@@ -150,6 +160,12 @@ in
         };
       };
     };
+
+    # samba and the backup job need the pool mounted before they start.
+    systemd.services.samba-smbd.after = [ "bellona-tank-init.service" ];
+    systemd.services.samba-nmbd.after = [ "bellona-tank-init.service" ];
+    systemd.services.samba-winbindd.after = [ "bellona-tank-init.service" ];
+    systemd.services.restic-backups-tank.after = [ "bellona-tank-init.service" ];
 
     networking.firewall.allowedTCPPorts = [
       139
