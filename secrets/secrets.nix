@@ -25,4 +25,45 @@ in
   "hermes-gateway-token.age" = {
     publicKeys = keys.home-devices ++ [ keys.bellona-user ];
   };
+
+  # bellona homelab. every one of these is encrypted to ethie's devices plus
+  # her user key on bellona, so luna can decrypt them for verification and the
+  # box can read them at activation.
+  "authelia-jwt.age" = {
+    publicKeys = keys.home-devices ++ [ keys.bellona-user ];
+  };
+  "authelia-storage-key.age" = {
+    publicKeys = keys.home-devices ++ [ keys.bellona-user ];
+  };
+  "authelia-session-secret.age" = {
+    publicKeys = keys.home-devices ++ [ keys.bellona-user ];
+  };
+  # scoped Cloudflare API token (Zone.DNS edit on packet.dog only), read by
+  # security.acme for the DNS-01 wildcard.
+  "cloudflare-dns-token.age" = {
+    publicKeys = keys.home-devices ++ [ keys.bellona-user ];
+  };
+  # one SMB credential file: `username=ethernet` + `password=...`. it is both
+  # the CIFS credentials file on the clients and the EnvironmentFile that seeds
+  # smbpasswd on bellona.
+  "bellona-smb.age" = {
+    publicKeys = keys.home-devices ++ [ keys.bellona-user ];
+  };
+  # slskd Soulseek credentials (SLSKD_SOULSEEK_USERNAME/PASSWORD).
+  "slskd-env.age" = {
+    publicKeys = keys.home-devices ++ [ keys.bellona-user ];
+  };
+  "grafana-admin.age" = {
+    publicKeys = keys.home-devices ++ [ keys.bellona-user ];
+  };
+  "homelab-api-token.age" = {
+    publicKeys = keys.home-devices ++ [ keys.bellona-user ];
+  };
+  # Home Assistant long-lived token for homelab-api's presence lookup.
+  "ha-token.age" = {
+    publicKeys = keys.home-devices ++ [ keys.bellona-user ];
+  };
+  "restic-password.age" = {
+    publicKeys = keys.home-devices ++ [ keys.bellona-user ];
+  };
 }

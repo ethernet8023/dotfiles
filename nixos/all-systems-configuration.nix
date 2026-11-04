@@ -6,7 +6,10 @@
   ...
 }:
 {
-  imports = [ ../identity.nix ];
+  imports = [
+    ../identity.nix
+    ./smb-client.nix
+  ];
 
   nixpkgs = {
     overlays = [
@@ -66,6 +69,13 @@
       hermes-gateway-token.file = ../secrets/hermes-gateway-token.age;
     };
   };
+
+  services.prometheus.exporters.node = {
+    enable = true;
+    listenAddress = "0.0.0.0";
+    port = 9100;
+  };
+  networking.firewall.allowedTCPPorts = [ 9100 ];
 
   boot = {
     # disable modules that conflict w/ smart card reader.

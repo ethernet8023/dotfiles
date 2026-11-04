@@ -21,6 +21,14 @@ let
   keys = import ../ssh-pubkeys.nix;
 in
 {
+  imports = [
+    ./bellona/default.nix
+  ];
+
+  # system-level agenix (the hm module only decrypts ethernet's user secrets).
+  # root reads ethie's user key on the box to decrypt these at activation.
+  age.identityPaths = [ "/home/ethernet/.ssh/id_ed25519" ];
+
   users.users.ethernet = {
     isNormalUser = true;
     extraGroups = [ "wheel" ];

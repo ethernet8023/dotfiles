@@ -62,6 +62,14 @@ bellona-update-input:
   ssh bellona 'cd /home/shared/flake && git pull --ff-only && nix flake update ethie-dotfiles && git add flake.lock && git -c user.name=ethernet -c user.email=arilotter@gmail.com commit -m "pin: bump ethie-dotfiles" && git push'
 
 # ── fleet ────────────────────────────────────────────────────────────────
+# deployment ledger: record a host's current closure and diff generations.
+# lethe is isabelroses' tool; `nix run` keeps it out of the flake inputs.
+record host:
+  nix run github:isabelroses/lethe -- record {{host}}
+
+diff host:
+  nix run github:isabelroses/lethe -- diff {{host}}
+
 # luna    nixos — built + switched right here (sudo prompts locally)
 # hermes  nixos — closure built here, pushed w/ --target-host + remote sudo
 # iris    darwin — can't cross-build; repo is git-pulled and built ON the mac

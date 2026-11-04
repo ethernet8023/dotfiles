@@ -151,6 +151,7 @@
           {
             imports = [
               inputs.home-manager.nixosModules.home-manager
+              inputs.agenix.nixosModules.default
               ./nixos/bellona-ether.nix
             ];
             home-manager.extraSpecialArgs.hermes-agent-package =

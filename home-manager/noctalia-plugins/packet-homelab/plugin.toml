@@ -1,0 +1,10 @@
+id = "packet/homelab"
+name = "Homelab"
+version = "1.0.0"
+plugin_api = 3
+author = "packet"
+description = "phobos/deimos + seedbox status from bellona's homelab-api"
+
+[[widget]]
+id = "status"
+entry = "widget.luau"

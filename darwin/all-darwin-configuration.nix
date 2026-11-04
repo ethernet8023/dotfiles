@@ -21,6 +21,36 @@
     secrets = {
       netrc.file = ../secrets/netrc.age;
       hermes-gateway-token.file = ../secrets/hermes-gateway-token.age;
+      # the user must be able to read this one: the launchd agent builds
+      # ~/.nsmbrc from it and mount_smbfs uses that.
+      bellona-smb = {
+        file = ../secrets/bellona-smb.age;
+        owner = config.me.username;
+        mode = "0400";
+      };
+    };
+  };
+
+  # macOS has no fstab-style cifs mounts worth using; mount_smbfs + ~/.nsmbrc
+  # is the supported path. the agent writes the credential file and mounts the
+  # shares at login, and is a no-op if they are already mounted.
+  launchd.user.agents.bellona-smb = {
+    serviceConfig = {
+      ProgramArguments = [
+        "/bin/sh"
+        "-c"
+        ''
+          { echo "[192.168.2.59]"; cat /run/agenix/bellona-smb; } > "$HOME/.nsmbrc"
+          chmod 600 "$HOME/.nsmbrc"
+          /bin/mkdir -p /Volumes/bellona-music /Volumes/bellona-vault
+          /sbin/mount | /usr/bin/grep -q "on /Volumes/bellona-music" \
+            || /sbin/mount_smbfs //ethernet@192.168.2.59/music /Volumes/bellona-music
+          /sbin/mount | /usr/bin/grep -q "on /Volumes/bellona-vault" \
+            || /sbin/mount_smbfs //ethernet@192.168.2.59/vault /Volumes/bellona-vault
+        ''
+      ];
+      RunAtLoad = true;
+      KeepAlive = false;
     };
   };
 

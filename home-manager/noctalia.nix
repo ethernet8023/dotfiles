@@ -146,13 +146,25 @@ in
   programs.noctalia = {
     enable = true;
     systemd.enable = true;
-    
+
     customPalettes.base16-accent = {
       dark = mkPalette darkColors;
       light = mkPalette lightColors;
     };
 
     settings = {
+      # local plugin source: the homelab bar widget lives in this repo.
+      plugins = {
+        sources = [
+          {
+            name = "packet";
+            kind = "path";
+            location = "${./noctalia-plugins}";
+          }
+        ];
+        enabled = [ "packet/homelab" ];
+      };
+
       theme = {
         # The starting mode only. `noctalia msg theme-mode-toggle` (mod+T, the
         # bar widget, the control-center tile) persists the user's choice into
@@ -266,6 +278,7 @@ in
         end = [
           "tray"
           "sysmon"
+          "packet/homelab:status"
           "brightness"
           "network"
           "bluetooth"
