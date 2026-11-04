@@ -248,5 +248,42 @@ in
           groups:
             - admins
     '';
+    # ACME only ever creates the _acme-challenge TXT records. A records are
+    # routing, not proof of ownership, so Caddy never touches them. this
+    # upserts @ and * to the current public IP; it needs Zone.DNS Edit plus
+    # Zone.Zone Read on the token.
+    systemd.services.bellona-ddns = {
+      description = "upsert packet.dog A records from the current public IP";
+      after = [ "network-online.target" ];
+      wants = [ "network-online.target" ];
+      serviceConfig = {
+        Type = "oneshot";
+        EnvironmentFile = config.age.secrets.cloudflare-dns-token.path;
+      };
+      script = ''
+        set -euo pipefail
+        ip=$(${pkgs.curl}/bin/curl -fsS https://cloudflare.com/cdn-cgi/trace | ${pkgs.gnused}/bin/sed -n 's/^ip=//p')
+        [ -n "$ip" ] || exit 1
+        zone=$(${pkgs.curl}/bin/curl -fsS -H "Authorization: Bearer $CLOUDFLARE_DNS_API_TOKEN" "https://api.cloudflare.com/client/v4/zones?name=${cfg.domain}" | ${pkgs.jq}/bin/jq -r '.result[0].id // empty')
+        [ -n "$zone" ] || exit 1
+        for name in "${cfg.domain}" "*.${cfg.domain}"; do
+          payload=$(${pkgs.jq}/bin/jq -nc --arg n "$name" --arg ip "$ip" '{type:"A",name:$n,content:$ip,ttl:120,proxied:false}')
+          id=$(${pkgs.curl}/bin/curl -fsS -H "Authorization: Bearer $CLOUDFLARE_DNS_API_TOKEN" "https://api.cloudflare.com/client/v4/zones/$zone/dns_records?type=A&name=$name" | ${pkgs.jq}/bin/jq -r '.result[0].id // empty')
+          if [ -n "$id" ]; then
+            ${pkgs.curl}/bin/curl -fsS -X PUT -H "Authorization: Bearer $CLOUDFLARE_DNS_API_TOKEN" -H "Content-Type: application/json" --data "$payload" "https://api.cloudflare.com/client/v4/zones/$zone/dns_records/$id" >/dev/null
+          else
+            ${pkgs.curl}/bin/curl -fsS -X POST -H "Authorization: Bearer $CLOUDFLARE_DNS_API_TOKEN" -H "Content-Type: application/json" --data "$payload" "https://api.cloudflare.com/client/v4/zones/$zone/dns_records" >/dev/null
+          fi
+        done
+      '';
+    };
+    systemd.timers.bellona-ddns = {
+      wantedBy = [ "timers.target" ];
+      timerConfig = {
+        OnBootSec = "2min";
+        OnUnitInactiveSec = "5min";
+        Persistent = true;
+      };
+    };
   };
 }
