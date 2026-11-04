@@ -13,9 +13,6 @@ rec {
 
   deimos = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILpaGqpz3+FJi2hOUqpZ+dKOqGk81Xl5TU6nX6F73Ts4 ethernet@spark-7a30";
 
-  # promise -- windows arm64; keypair generated on the box
-  promise = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILdhWXhyj4XlpWsgtdhnVQoRsePkekikby69I1NNI1l4 arilotter@gmail.com";
-
   # ethernet's USER key on bellona
   bellona-user = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAII07YJjVEXOI7taW500PJ1j6hPI+mHoJNWxXG90/6SL+ arilotter@gmail.com";
 
@@ -36,7 +33,6 @@ rec {
     iris
     phobos
     deimos
-    promise
     bellona-user
   ];
 

@@ -16,9 +16,6 @@
 #   luna      desktop, in our tailnet: magicdns name, same reason as phobos.
 #   hermes    framework laptop, roams; tailnet magicdns name only.
 #   iris      macbook, mdns on whatever network it's on.
-#   promise   win11 arm64. tailnet node is `promise-1` (the old
-#             promise.tail…name is stale); the ts route is often down, in
-#             which case it is LAN-only and reached by IP.
 #   window    windows box, usually off, no tailnet node: LAN only, by its
 #             mdns name window.local.
 #
@@ -88,12 +85,6 @@
         # dhcp moves it around; mdns is stable
         hostname = "iris.local";
         user = (import ../hosts.nix).iris.username;
-      };
-      promise = {
-        # node is `promise-1` in the tailnet; promise.tail… is a stale name.
-        # when the ts route is down this box is LAN-only — ssh the IP by hand.
-        hostname = "promise-1.tail5b83ba.ts.net";
-        user = "arilo";
       };
 
       # ── rented metal ──
