@@ -105,10 +105,15 @@ in
         };
 
         "home.${domain}" = vhost { upstream = 8090; };
-        "photos.${domain}" = vhost {
-          upstream = 2283;
-          protect = false;
-        };
+        # photos is OFF: immich has no backend listening on 2283 yet (its
+        # postgres is down), and until it is real there is no reason to publish
+        # an app that has to bypass forward-auth to keep its mobile clients and
+        # share links working. re-enable this block and the authelia bypass rule
+        # below together, or immich will 502 through authelia instead.
+        # "photos.${domain}" = vhost {
+        #   upstream = 2283;
+        #   protect = false;
+        # };
         "torrents.${domain}" = vhost { upstream = 8080; };
         "grafana.${domain}" = vhost { upstream = 3000; };
         "hermes.${domain}" = vhost { upstream = 9120; };
@@ -186,6 +191,9 @@ in
               domain = "auth.${domain}";
               policy = "bypass";
             }
+            # photos has no vhost right now (see ingress), so this rule is inert
+            # until it comes back. immich keeps its own auth + share links, so it
+            # must stay bypassed when the vhost returns.
             {
               domain = "photos.${domain}";
               policy = "bypass";
