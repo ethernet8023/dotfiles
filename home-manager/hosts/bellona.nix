@@ -56,6 +56,16 @@ in
     };
   };
 
+  # upstream's module splits installation from the daemon: `programs.` puts
+  # `hermes` on PATH and exports HERMES_HOME, `services.` runs the units. the
+  # old `services.hermes-agent.installPackage` covered both and is gone, which
+  # is why `hermes` vanished off PATH here while the units kept running.
+  # no desktop: bellona has no display. the package defaults to the services'
+  # package, so the CLI and the units stay one build.
+  programs.hermes-agent = {
+    enable = true;
+  };
+
   services.hermes-agent = {
     enable = true;
     package = hermes-agent-package;
