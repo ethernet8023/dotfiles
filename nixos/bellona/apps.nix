@@ -173,6 +173,10 @@ in
                     type = "custom-api";
                     title = "homelab";
                     url = "http://127.0.0.1:8091/summary";
+                    # glance caches fetched widget data (default is minutes), and
+                    # a status line that stale is a lie. 30s sits just above the
+                    # 15s vllm scrape.
+                    cache = "30s";
                     template = ''
                       {{ .JSON.String "headline" }}
                     '';

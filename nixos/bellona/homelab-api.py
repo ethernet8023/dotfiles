@@ -63,9 +63,13 @@ def sparks():
         out.append({"host": "phobos", "line": f"phobos {tok:.0f} tok/s"})
     if not out:
         out.append({"host": "phobos", "line": "phobos down"})
-    # deimos has no tailnet address of its own; it is scraped through phobos
-    # once an agent is deployed there.
-    out.append({"host": "deimos", "line": "deimos via phobos"})
+    # deimos is the second half of phobos's TP=2 pair and has no address of its
+    # own; the pair's own health counters are the only honest signal for it.
+    broken = prom("tensorfold:pair_broken")
+    if broken is not None:
+        out.append({"host": "deimos", "line": "deimos pair ok" if broken == 0 else "deimos PAIR BROKEN"})
+    else:
+        out.append({"host": "deimos", "line": "deimos via phobos"})
     return out
 
 
