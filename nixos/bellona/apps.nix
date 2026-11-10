@@ -75,6 +75,13 @@ in
     };
     systemd.services.slskd.after = [ "tank.mount" ];
     systemd.services.slskd.requires = [ "tank.mount" ];
+    # slskd validates its directories on startup and refuses to run if the
+    # incomplete dir is missing -- it does not create it itself. the service
+    # user already has group write on /tank/music/inbox, so create it in the
+    # same sandbox rather than as root.
+    systemd.services.slskd.preStart = ''
+      ${pkgs.coreutils}/bin/mkdir -p /tank/music/inbox/.incomplete
+    '';
     networking.firewall.allowedTCPPorts = [
       50300
       8091
