@@ -136,6 +136,20 @@ in
         };
         http.server_host = [ "127.0.0.1" ];
         http.server_port = 8123;
+        # every request arrives from caddy on 127.0.0.1, so HA's trusted_networks
+        # provider authenticates it as the owner and never renders a login form --
+        # authelia's forward-auth is the only gate on the public path. the
+        # homeassistant provider stays listed so a direct LAN/tailnet hit can
+        # still log in normally. allow_bypass_login needs exactly one user;
+        # with several HA shows a picker instead of a password.
+        auth_providers = [
+          { type = "homeassistant"; }
+          {
+            type = "trusted_networks";
+            trusted_networks = [ "127.0.0.1" ];
+            allow_bypass_login = true;
+          }
+        ];
         # full-resolution history forever. long-term statistics are already
         # kept forever by HA; this keeps every state change too.
         recorder = {

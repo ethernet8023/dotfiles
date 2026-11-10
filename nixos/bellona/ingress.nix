@@ -117,55 +117,17 @@ in
         "torrents.${domain}" = vhost { upstream = 8080; };
         "grafana.${domain}" = vhost { upstream = 3000; };
         "hermes.${domain}" = vhost { upstream = 9120; };
-        "api.${domain}" = vhost {
-          upstream = 8091;
-          protect = false;
-        };
+        # api has no vhost: glance fetches http://127.0.0.1:8091/summary
+        # server-side and the noctalia widget polls the LAN address directly, so
+        # publishing it only added a bearer-token surface with no forward-auth.
 
-        "music.${domain}" = {
-          useACMEHost = certName;
-          listenAddresses = [ cfg.lanAddress ];
-          extraConfig = ''
-            @rest path /rest/*
-            handle @rest {
-              reverse_proxy 127.0.0.1:4533
-            }
-            handle {
-              ${forwardAuth}
-              reverse_proxy 127.0.0.1:4533
-            }
-          '';
-        };
-
-        "soulseek.${domain}" = {
-          useACMEHost = certName;
-          listenAddresses = [ cfg.lanAddress ];
-          extraConfig = ''
-            @api path /api/*
-            handle @api {
-              reverse_proxy 127.0.0.1:5030
-            }
-            handle {
-              ${forwardAuth}
-              reverse_proxy 127.0.0.1:5030
-            }
-          '';
-        };
-
-        "ha.${domain}" = {
-          useACMEHost = certName;
-          listenAddresses = [ cfg.lanAddress ];
-          extraConfig = ''
-            @open path /api/* /local/* /auth/* /static/* /frontend_latest/* /frontend_es5/*
-            handle @open {
-              reverse_proxy 127.0.0.1:8123
-            }
-            handle {
-              ${forwardAuth}
-              reverse_proxy 127.0.0.1:8123
-            }
-          '';
-        };
+        # music, soulseek and ha used to carve out /rest, /api and HA's own
+        # endpoints so Subsonic clients, the HA app and slskd's API could skip
+        # authelia. nothing is carved out now: every path on every host needs a
+        # session. clients that cannot follow a redirect use the tailnet.
+        "music.${domain}" = vhost { upstream = 4533; };
+        "soulseek.${domain}" = vhost { upstream = 5030; };
+        "ha.${domain}" = vhost { upstream = 8123; };
       };
     };
 
@@ -194,63 +156,34 @@ in
         access_control = {
           default_policy = "deny";
           rules = [
-            # apps with their own auth (or public share links) must not be
-            # forward-authed, or mobile apps and share URLs break.
+            # the portal is the one thing that must answer without a session,
+            # or you can never log in.
             {
               domain = "auth.${domain}";
               policy = "bypass";
             }
-            # photos has no vhost right now (see ingress), so this rule is inert
-            # until it comes back. immich keeps its own auth + share links, so it
-            # must stay bypassed when the vhost returns.
-            {
-              domain = "photos.${domain}";
-              policy = "bypass";
-            }
-            # Subsonic clients authenticate themselves.
-            {
-              domain = "music.${domain}";
-              resources = [ "^/rest(/.*)?$" ];
-              policy = "bypass";
-            }
-            {
-              domain = "music.${domain}";
-              policy = "one_factor";
-            }
-            # Home Assistant's mobile app and API use long-lived tokens.
-            {
-              domain = "ha.${domain}";
-              resources = [
-                "^/api(/.*)?$"
-                "^/local(/.*)?$"
-                "^/auth(/.*)?$"
-                "^/static(/.*)?$"
-                "^/frontend_latest(/.*)?$"
-              ];
-              policy = "bypass";
-            }
-            {
-              domain = "ha.${domain}";
-              policy = "one_factor";
-            }
-            # slskd's API uses its own key.
-            {
-              domain = "soulseek.${domain}";
-              resources = [ "^/api(/.*)?$" ];
-              policy = "bypass";
-            }
-            {
-              domain = "soulseek.${domain}";
-              policy = "one_factor";
-            }
+            # everything else is two_factor, with no per-path carve-outs. one
+            # session covers every vhost, so this is a single login for the
+            # whole homelab -- the "auto login" is that authelia already has a
+            # cookie for the parent domain and forward_auth just passes it.
             {
               domain = [
                 "home.${domain}"
                 "torrents.${domain}"
                 "grafana.${domain}"
                 "hermes.${domain}"
+                "music.${domain}"
+                "soulseek.${domain}"
+                "ha.${domain}"
               ];
               policy = "two_factor";
+            }
+            # photos has no vhost right now (see ingress), so this is inert.
+            # immich keeps its own auth + share links, so it stays bypassed when
+            # it comes back -- its auth is immich's OIDC, not authelia's proxy.
+            {
+              domain = "photos.${domain}";
+              policy = "bypass";
             }
           ];
         };
