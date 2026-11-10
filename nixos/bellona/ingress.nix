@@ -180,6 +180,15 @@ in
         theme = "dark";
         server.address = "tcp://127.0.0.1:${toString autheliaPort}";
         log.level = "info";
+        # brute-force brake on the only internet-facing login. mode ip, not
+        # user: a user ban lets an attacker lock ethie out of her own portal by
+        # failing three times on her name. the ip is what actually has to pay.
+        regulation = {
+          modes = [ "ip" ];
+          max_retries = 3;
+          find_time = "2m";
+          ban_time = "15m";
+        };
         totp.issuer = domain;
         authentication_backend.file.path = "/etc/authelia/users.yml";
         access_control = {
