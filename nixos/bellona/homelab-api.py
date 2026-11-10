@@ -48,9 +48,12 @@ def prom(query):
 
 
 def sparks():
-    gpu = prom("sum(vllm:gpu_cache_usage_perc)")
-    reqs = prom("sum(vllm:num_requests_running)")
-    tok = prom("sum(rate(vllm:generation_tokens_total[5m]))")
+    # phobos runs the EXL3/tensorfold build, whose Prometheus names are
+    # `tensorfold:*`, not upstream vLLM's `vllm:*`. kv_cache_usage_ratio is the
+    # 0-1 form (there is also a `_perc` that is already 0-100).
+    gpu = prom("sum(tensorfold:kv_cache_usage_ratio)")
+    reqs = prom("sum(tensorfold:num_requests_running)")
+    tok = prom("sum(rate(tensorfold:generation_tokens_total[5m]))")
     out = []
     if gpu is not None:
         out.append({"host": "phobos", "line": f"phobos kv {gpu * 100:.0f}%"})

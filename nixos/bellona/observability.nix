@@ -42,8 +42,11 @@ in
             {
               targets = [
                 "127.0.0.1:9100"
-                "100.108.28.67:9100" # luna
-                "100.102.87.69:9100" # phobos
+                # luna and phobos are scraped over the LAN, not the tailnet:
+                # bellona sits on dahlia's tailnet (giraffa-richter), and
+                # ethie's 100.108/100.102 peers are not routable from here.
+                # neither box runs node_exporter yet, so both are left out
+                # rather than pinned as permanently-down targets.
               ];
             }
           ];
@@ -53,7 +56,7 @@ in
           metrics_path = "/metrics";
           scrape_interval = "15s";
           static_configs = [
-            { targets = [ "100.102.87.69:8888" ]; } # phobos spark endpoint
+            { targets = [ "192.168.2.159:8888" ]; } # phobos spark endpoint (LAN)
           ];
         }
         {

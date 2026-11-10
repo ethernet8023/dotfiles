@@ -186,34 +186,36 @@ in
                     type = "bookmarks";
                     groups = [
                       {
-                        name = "services";
+                        # glance 0.8 keys these as `title`, not `name` -- `name`
+                        # parses fine and then renders as an empty row.
+                        title = "services";
                         links = [
                           {
-                            name = "Immich";
+                            title = "Immich";
                             url = "https://photos.${cfg.domain}";
                           }
                           {
-                            name = "Music";
+                            title = "Music";
                             url = "https://music.${cfg.domain}";
                           }
                           {
-                            name = "Soulseek";
+                            title = "Soulseek";
                             url = "https://soulseek.${cfg.domain}";
                           }
                           {
-                            name = "Torrents";
+                            title = "Torrents";
                             url = "https://torrents.${cfg.domain}";
                           }
                           {
-                            name = "Home Assistant";
+                            title = "Home Assistant";
                             url = "https://ha.${cfg.domain}";
                           }
                           {
-                            name = "Grafana";
+                            title = "Grafana";
                             url = "https://grafana.${cfg.domain}";
                           }
                           {
-                            name = "Hermes";
+                            title = "Hermes";
                             url = "https://hermes.${cfg.domain}";
                           }
                         ];
