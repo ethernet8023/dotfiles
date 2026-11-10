@@ -62,6 +62,24 @@ in
 
     networking.firewall.allowedTCPPorts = [ 443 ];
 
+    # ssh is LAN + tailnet only. the router forwards just 443, so this is
+    # belt-and-braces: if another port is ever forwarded, ssh still refuses
+    # strangers. nixpkgs' iptables backend has no extraInputRules (that option
+    # is nftables-only), and extraCommands runs AFTER the per-port accepts, so
+    # insert at the head of nixos-fw instead. `-w` takes the xtables lock the
+    # firewall script also holds; `nixos-fw-refuse` sends a reset so clients
+    # fail fast instead of hanging on a drop.
+    networking.firewall.extraCommands = ''
+      iptables -w -I nixos-fw 1 -p tcp --dport 22 -s 192.168.2.0/24 -j nixos-fw-accept
+      iptables -w -I nixos-fw 2 -p tcp --dport 22 -s 100.64.0.0/10 -j nixos-fw-accept
+      iptables -w -I nixos-fw 3 -p tcp --dport 22 -s 127.0.0.0/8 -j nixos-fw-accept
+      iptables -w -I nixos-fw 4 -p tcp --dport 22 -j nixos-fw-refuse
+      ip6tables -w -I nixos-fw 1 -p tcp --dport 22 -s fd7a:115c:a1e0::/48 -j nixos-fw-accept
+      ip6tables -w -I nixos-fw 2 -p tcp --dport 22 -s fe80::/10 -j nixos-fw-accept
+      ip6tables -w -I nixos-fw 3 -p tcp --dport 22 -s ::1/128 -j nixos-fw-accept
+      ip6tables -w -I nixos-fw 4 -p tcp --dport 22 -j nixos-fw-refuse
+    '';
+
     security.acme = {
       acceptTerms = true;
       defaults.email = "arilotter@gmail.com";
