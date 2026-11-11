@@ -63,6 +63,12 @@ in
   "ha-token.age" = {
     publicKeys = keys.home-devices ++ [ keys.bellona-user ];
   };
+  # Real-Debrid WebDAV credentials: `username=` + `password=` lines, where the
+  # password is the account's WebDAV password (account settings), not the API
+  # token. consumed by the rclone mount in nixos/bellona/debrid.nix.
+  "real-debrid-webdav.age" = {
+    publicKeys = keys.home-devices ++ [ keys.bellona-user ];
+  };
   "restic-password.age" = {
     publicKeys = keys.home-devices ++ [ keys.bellona-user ];
   };

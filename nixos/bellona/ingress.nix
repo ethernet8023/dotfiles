@@ -128,6 +128,7 @@ in
         "music.${domain}" = vhost { upstream = 4533; };
         "soulseek.${domain}" = vhost { upstream = 5030; };
         "ha.${domain}" = vhost { upstream = 8123; };
+        "media.${domain}" = vhost { upstream = 8096; };
       };
     };
 
@@ -175,6 +176,7 @@ in
                 "music.${domain}"
                 "soulseek.${domain}"
                 "ha.${domain}"
+                "media.${domain}"
               ];
               policy = "two_factor";
             }

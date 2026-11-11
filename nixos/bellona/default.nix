@@ -5,6 +5,7 @@
     ./ingress.nix
     ./observability.nix
     ./apps.nix
+    ./debrid.nix
     ./hermes-webapp.nix
   ];
 
