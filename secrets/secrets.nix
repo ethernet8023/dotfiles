@@ -69,6 +69,20 @@ in
   "real-debrid-webdav.age" = {
     publicKeys = keys.home-devices ++ [ keys.bellona-user ];
   };
+  # authelia's OIDC provider: the JWT signing hmac and the issuer private key
+  # (the module templates the key into a jwks entry, so it stays out of the
+  # store). bellona only.
+  "authelia-oidc-hmac.age" = {
+    publicKeys = [ keys.bellona-user ];
+  };
+  "authelia-oidc-issuer.age" = {
+    publicKeys = [ keys.bellona-user ];
+  };
+  # plaintext OIDC client secret for jellyfin's SSO plugin. the pbkdf2 digest in
+  # ingress.nix is derived from this value.
+  "jellyfin-oidc-client.age" = {
+    publicKeys = [ keys.bellona-user ];
+  };
   "restic-password.age" = {
     publicKeys = keys.home-devices ++ [ keys.bellona-user ];
   };

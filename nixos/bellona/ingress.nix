@@ -21,6 +21,12 @@ let
     forward_auth 127.0.0.1:${toString autheliaPort} {
       uri /api/authz/forward-auth
       copy_headers Remote-User Remote-Groups Remote-Name Remote-Email
+      # jellyfin (and grafana) send their own Authorization header. authelia
+      # tries to parse it, does not know the "MediaBrowser" scheme, and answers
+      # 401 with a Basic challenge -- which the browser renders as a password
+      # dialog. the header is for the upstream only: drop it from the auth
+      # subrequest.
+      header_up -Authorization
     }
   '';
 
@@ -59,6 +65,16 @@ in
       mode = "0400";
     };
     age.secrets.cloudflare-dns-token.file = ../../secrets/cloudflare-dns-token.age;
+    age.secrets.authelia-oidc-hmac = {
+      file = ../../secrets/authelia-oidc-hmac.age;
+      owner = "authelia-main";
+      mode = "0400";
+    };
+    age.secrets.authelia-oidc-issuer = {
+      file = ../../secrets/authelia-oidc-issuer.age;
+      owner = "authelia-main";
+      mode = "0400";
+    };
 
     networking.firewall.allowedTCPPorts = [ 443 ];
 
@@ -138,6 +154,11 @@ in
         jwtSecretFile = config.age.secrets.authelia-jwt.path;
         storageEncryptionKeyFile = config.age.secrets.authelia-storage-key.path;
         sessionSecretFile = config.age.secrets.authelia-session-secret.path;
+        # OIDC provider: the hmac signs JWTs, the issuer key is injected by the
+        # module as a jwks entry (it templates CREDENTIALS_DIRECTORY into the
+        # config, so the private key never lands in the store).
+        oidcHmacSecretFile = config.age.secrets.authelia-oidc-hmac.path;
+        oidcIssuerPrivateKeyFile = config.age.secrets.authelia-oidc-issuer.path;
       };
       settings = {
         theme = "dark";
@@ -189,6 +210,34 @@ in
             }
           ];
         };
+        # OIDC provider for jellyfin's SSO plugin (9p4/jellyfin-plugin-sso).
+        # authelia derives the issuer from the client's redirect URI, so there is
+        # no issuer field to set. client_secret is a pbkdf2 digest (safe to keep
+        # in a public repo); the plaintext is in /run/agenix/jellyfin-oidc-client
+        # and is what goes into the plugin's config on the box.
+        identity_providers.oidc.clients = [
+          {
+            client_id = "jellyfin";
+            client_name = "Jellyfin";
+            client_secret = "$pbkdf2-sha512$310000$ySNoXiQOrD2b3LNIrNnIdw$VzmbIFV16dElioAjG7hVp8ygvFwkckHnMqVdwPvUfrfsho.1TAk9EglOQ7zcNPqLKMyWlmhKO7E8e0lAtigXiQ";
+            redirect_uris = [ "https://media.${domain}/sso/OID/redirect/Authelia" ];
+            scopes = [
+              "openid"
+              "profile"
+              "email"
+              "groups"
+            ];
+            audience = [ "jellyfin" ];
+            grant_types = [
+              "authorization_code"
+              "refresh_token"
+            ];
+            response_types = [ "code" ];
+            token_endpoint_auth_method = "client_secret_basic";
+            authorization_policy = "two_factor";
+            consent_mode = "implicit";
+          }
+        ];
         session = {
           name = "authelia_session";
           same_site = "lax";
