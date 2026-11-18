@@ -136,7 +136,10 @@ in
           "server string" = "bellona";
           "security" = "user";
           "map to guest" = "Bad User";
-          "interfaces" = "lo enp191s0";
+          # tailscale0 is here so the roaming machines (iris, hermes) can mount
+          # the shares over the tailnet instead of needing a LAN address or an
+          # ssh tunnel. still not the internet: only tailnet peers reach it.
+          "interfaces" = "lo enp191s0 tailscale0";
           "bind interfaces only" = "yes";
           "server min protocol" = "SMB2";
         };
@@ -146,6 +149,19 @@ in
           "browseable" = "yes";
           "valid users" = "ethernet";
           comment = "music library (read-only)";
+        };
+        # same directory as `music`, writable, for ingesting new material from
+        # another machine (robocopy /Z from window). kept separate so the
+        # read-only share stays read-only for rekordbox.
+        "music-ingest" = {
+          path = "/tank/music/library";
+          "read only" = "no";
+          "browseable" = "yes";
+          "valid users" = "ethernet";
+          "force user" = "ethernet";
+          "create mask" = "0644";
+          "directory mask" = "0755";
+          comment = "music library (write side, for bulk ingest)";
         };
         rekordbox = {
           path = "/srv/rekordbox";
