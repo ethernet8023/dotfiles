@@ -18,6 +18,7 @@ handshake, before any page code runs. Run under `cage` for no visible window.
 from __future__ import annotations
 
 import asyncio
+import os
 import re
 from contextlib import asynccontextmanager
 from datetime import UTC, date, datetime, timedelta
@@ -28,7 +29,8 @@ from camoufox.async_api import AsyncCamoufox
 from playwright.async_api import Error as PlaywrightError
 
 from cctrack.secrets.beeper import BeeperClient, BeeperError
-from cctrack.secrets.bitwarden import Credential, get_login
+from cctrack.secrets.bitwarden import Credential
+from cctrack.secrets.credentials import get_login
 
 SIGNON_URL = "https://www.cibconline.cibc.com/ebm-resources/public/client/web/index.html#/signon"
 
@@ -399,7 +401,15 @@ Camoufox is a patched Firefox that spoofs below JS, in C++, so there is no
 JS-visible seam to find.
 """
 
-PROFILE_DIR = Path.home() / ".local/share/cctrack/camoufox"
+PROFILE_DIR = Path(
+    os.environ.get("CCTRACK_PROFILE")
+    or Path.home() / ".local/share/cctrack/camoufox"
+)
+"""The persistent Firefox profile: cookies plus CIBC's trusted-device marker.
+
+CCTRACK_PROFILE overrides it so a dev run can keep its own profile instead of
+sharing -- and invalidating -- production's session.
+"""
 
 
 @asynccontextmanager

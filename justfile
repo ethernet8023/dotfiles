@@ -49,6 +49,22 @@ clean:
 fmt:
   nix fmt .
 
+# ── cctrack (projects/cctrack) ───────────────────────────────────────────
+# the budget tracker runs on bellona as a user unit -- docs/cctrack.md has the
+# deploy and first-run steps. these are the local dev loop.
+
+# snapshot production into projects/cctrack/.dev and serve it on :5002
+cctrack-dev *args:
+  nix develop .#cctrack --command ./projects/cctrack/scripts/dev.sh {{args}}
+
+# pull the snapshot without starting a server
+cctrack-snapshot:
+  nix develop .#cctrack --command ./projects/cctrack/scripts/dev.sh --snapshot-only
+
+# the project's suite, in the sealed env (not a pip one)
+cctrack-test:
+  nix develop .#cctrack --command bash -c 'cd projects/cctrack && pytest -q'
+
 # ── bellona (dahlia's box) ───────────────────────────────────────────────
 # the box's SYSTEM config is dahlia's flake, checked out on the box at
 # /home/shared/flake. my own user config reaches it as that flake's

@@ -2,6 +2,7 @@
   config,
   pkgs,
   hermes-agent-package,
+  cctrack-package,
   ...
 }:
 let
@@ -153,6 +154,85 @@ in
       ExecStartPre = "${qbittorrentSeedConfig}";
       ExecStart = "${pkgs.qbittorrent-nox}/bin/qbittorrent-nox --confirm-legal-notice --webui-port=8080";
       Restart = "on-failure";
+    };
+    Install.WantedBy = [ "default.target" ];
+  };
+
+  # ── cctrack: CIBC statements + the budget UI ─────────────────────────────
+  #
+  # Two user units, both under cage (a real compositor with no visible output).
+  # CIBC's Akamai edge drops headless browsers during the h2 handshake, so the
+  # scraper has to be genuinely headed; Beeper is an Electron app and needs a
+  # display too.
+  #
+  # User units rather than system services because linger keeps them alive
+  # while i'm logged out, everything they write is mine, and root on this box
+  # is dahlia's -- the less it has to do, the better. The package itself is
+  # built by this flake (nix/pkgs/cctrack.nix), so prod is a pinned rev.
+
+  home.packages = [ cctrack-package pkgs.beeper ];
+
+  # The CIBC card number + password, agenix-decrypted to a runtime path. The
+  # service reads it via CCTRACK_LOGIN_FILE: nothing enters the nix store and
+  # nothing goes on a command line (world-readable in /proc).
+  age.secrets.cctrack-cibc = {
+    file = ../../secrets/cctrack-cibc.age;
+  };
+
+  # The 2FA code comes from CIBC's SMS, which reaches Beeper through the phone.
+  # Running Beeper here rather than relaying hermes's API means a sync never
+  # depends on a laptop being awake -- and hermes's copy binds 127.0.0.1, so it
+  # was never reachable from this box anyway.
+  #
+  # First run needs a human: Beeper Desktop signs in once (account credentials)
+  # and cctrack's API token is authorised once, both into ~/.config. See
+  # docs/cctrack.md.
+  systemd.user.services.beeper = {
+    Unit = {
+      Description = "Beeper Desktop (SMS bridge for CIBC sign-on codes)";
+      after = [ "network-online.target" ];
+      wants = [ "network-online.target" ];
+    };
+    Service = {
+      ExecStart = "${pkgs.cage}/bin/cage -- ${pkgs.beeper}/bin/beeper";
+      Restart = "on-failure";
+      RestartSec = 15;
+      Environment = [
+        "WLR_BACKENDS=headless"
+        "WLR_LIBINPUT_NO_DEVICES=1"
+        # the beeper wrapper only passes the wayland flags when this is set
+        "NIXOS_OZONE_WL=1"
+      ];
+    };
+    Install.WantedBy = [ "default.target" ];
+  };
+
+  systemd.user.services.cctrack = {
+    Unit = {
+      Description = "cctrack: CIBC statements + budget UI (127.0.0.1:5001)";
+      after = [ "network-online.target" ];
+      wants = [ "network-online.target" ];
+      # A rejected login is the one failure that can lock the account, so the
+      # in-process scheduler owns retries (exponential backoff, hard stop after
+      # four). These limits only stop a crash loop.
+      startLimitIntervalSec = 3600;
+      startLimitBurst = 5;
+    };
+    Service = {
+      ExecStart = "${pkgs.cage}/bin/cage -- ${cctrack-package}/bin/cctrack serve --host 127.0.0.1 --port 5001 --auto-sync --every 360";
+      # .sesskey and the downloaded CSVs have to land somewhere writable: the
+      # package lives in /nix/store, and downloads_dir() defaults to the
+      # checkout next to the package.
+      WorkingDirectory = "%h/.local/share/cctrack";
+      ExecStartPre = "${pkgs.coreutils}/bin/mkdir -p %h/.local/share/cctrack/downloads";
+      Environment = [
+        "CCTRACK_LOGIN_FILE=${config.age.secrets.cctrack-cibc.path}"
+        "CCTRACK_DOWNLOADS=%h/.local/share/cctrack/downloads"
+        "WLR_BACKENDS=headless"
+        "WLR_LIBINPUT_NO_DEVICES=1"
+      ];
+      Restart = "on-failure";
+      RestartSec = 30;
     };
     Install.WantedBy = [ "default.target" ];
   };

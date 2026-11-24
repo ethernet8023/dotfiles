@@ -54,6 +54,18 @@
       noctalia = followsNixpkgs "github:noctalia-dev/noctalia";
       noctalia-appmenu = followsNixpkgs "github:yolo-labz/noctalia-appmenu";
       yazi-plugins = followsNixpkgs "github:lordkekz/nix-yazi-plugins";
+
+      # python packaging for the projects/ trees. uv2nix seals a venv from a
+      # uv.lock, pyproject-nix is its module set, and build-system-pkgs supplies
+      # the PEP-517 backends -- the same trio hermes-agent uses upstream.
+      uv2nix = followsNixpkgs "github:pyproject-nix/uv2nix";
+      pyproject-nix = followsNixpkgs "github:pyproject-nix/pyproject.nix";
+      pyproject-build-systems = followsNixpkgs "github:pyproject-nix/build-system-pkgs";
+      # NOT followsNixpkgs: camoufox-nix builds a patched Firefox against the
+      # nixpkgs it pins, and camoufox is C++ -- pointing it at nixpkgs-master is
+      # how you get a browser whose binary disagrees with its properties.json.
+      # Exempted in checkNixpkgsVersions below.
+      camoufox-nix.url = "github:maximoffua/camoufox-nix";
     };
 
   outputs =
@@ -66,6 +78,19 @@
     }@inputs:
     let
       inherit (nixpkgs) lib;
+
+      # projects/cctrack -- the CIBC statement downloader + budget tracker.
+      # Built here so bellona runs a pinned rev of it (nixos/bellona/cctrack.nix)
+      # and so `nix develop .#cctrack` is the same dependency set the tests ran
+      # against. See nix/pkgs/cctrack.nix for why uv2nix + camoufox-nix.
+      cctrack =
+        let
+          pkgs = nixpkgs.legacyPackages.x86_64-linux;
+        in
+        import ./nix/pkgs/cctrack.nix {
+          inherit lib pkgs;
+          inherit (inputs) uv2nix pyproject-nix pyproject-build-systems camoufox-nix;
+        };
 
       sys = {
         specialArgs = {
@@ -120,6 +145,41 @@
       formatter.x86_64-linux = nixpkgs.legacyPackages.x86_64-linux.nixfmt;
       formatter.aarch64-darwin = nixpkgs.legacyPackages.aarch64-darwin.nixfmt;
 
+      packages.x86_64-linux.cctrack = cctrack;
+
+      # Dev loop for projects/cctrack: the sealed venv above, so what you run
+      # locally is the same dependency set bellona runs. `python -m
+      # cctrack.cli` from the checkout imports the working tree while the venv
+      # supplies the deps, and UV_NO_SYNC keeps uv from creating a second
+      # .venv that would silently drift from uv.lock.
+      devShells.x86_64-linux.cctrack =
+        let
+          pkgs = nixpkgs.legacyPackages.x86_64-linux;
+        in
+        pkgs.mkShell {
+          packages = [
+            cctrack.passthru.devVenv
+            pkgs.uv
+            # headed-but-invisible compositor for a sync, exactly like prod
+            pkgs.cage
+            # credential source for a local sync (prod reads agenix instead)
+            pkgs.bitwarden-cli
+            pkgs.sqlite
+            pkgs.curl
+            pkgs.jq
+          ];
+          shellHook = ''
+            export CAMOUFOX_EXECUTABLE_PATH=${cctrack.passthru.browser}/bin/camoufox
+            export PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
+            export PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS=true
+            export UV_NO_SYNC=1
+            export VIRTUAL_ENV="$(dirname "$(dirname "$(readlink -f "$(command -v python)")")")"
+            unset PYTHONHOME
+            echo "cctrack: cd projects/cctrack, then 'python -m cctrack.cli --help'"
+            echo "         prod data snapshot: just cctrack-snapshot"
+          '';
+        };
+
       # importable by other flakes. these are plain module paths -- no nixpkgs
       # of mine leaks through them, so a consumer evaluates them against their
       # own.
@@ -156,6 +216,9 @@
             ];
             home-manager.extraSpecialArgs.hermes-agent-package =
               inputs.hermes-agent.packages.x86_64-linux.default;
+
+            # the budget tracker's CLI + units (home-manager/hosts/bellona.nix)
+            home-manager.extraSpecialArgs.cctrack-package = cctrack;
 
             # hm-level modules for ethernet's user config: hermes-agent declares
             # services.hermes-agent; agenix decrypts the shared gateway token
@@ -280,6 +343,7 @@
           allowed = [
             "root"
             "hermes-agent"
+            "camoufox-nix"
           ];
           unexpected = lib.subtractLists allowed owners;
         in

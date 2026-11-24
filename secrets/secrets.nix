@@ -26,6 +26,14 @@ in
     publicKeys = keys.home-devices ++ [ keys.bellona-user ];
   };
 
+  # the CIBC sign-on: `username=` (the card number) + `password=`, read by
+  # cctrack on bellona through CCTRACK_LOGIN_FILE (home-manager/hosts/bellona.nix).
+  # a file rather than the Bitwarden CLI because a systemd unit has no vault to
+  # unlock, and this way the password never touches argv or the nix store.
+  "cctrack-cibc.age" = {
+    publicKeys = keys.home-devices ++ [ keys.bellona-user ];
+  };
+
   # bellona homelab. every one of these is encrypted to ethie's devices plus
   # her user key on bellona, so luna can decrypt them for verification and the
   # box can read them at activation.

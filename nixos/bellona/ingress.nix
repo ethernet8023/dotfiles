@@ -145,6 +145,9 @@ in
         "soulseek.${domain}" = vhost { upstream = 5030; };
         "ha.${domain}" = vhost { upstream = 8123; };
         "media.${domain}" = vhost { upstream = 8096; };
+        # cctrack's UI (a user unit on 127.0.0.1:5001) -- CIBC statements,
+        # review queue, burn chart.
+        "budget.${domain}" = vhost { upstream = 5001; };
       };
     };
 
@@ -198,6 +201,7 @@ in
                 "soulseek.${domain}"
                 "ha.${domain}"
                 "media.${domain}"
+                "budget.${domain}"
               ];
               policy = "two_factor";
             }

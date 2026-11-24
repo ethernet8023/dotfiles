@@ -30,3 +30,6 @@ browser/
 .worktrees/
 result
 result-*
+
+# dev snapshot of the production database (real transactions, never commit)
+.dev/

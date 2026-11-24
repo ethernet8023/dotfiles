@@ -1,3 +1,7 @@
 nixpkgs/*/source
 result
 .worktrees
+
+# nix build output links
+result
+result-*

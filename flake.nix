@@ -10,6 +10,7 @@
       url = "github:ryantm/agenix";
     };
     base16.url = "github:SenchoPens/base16.nix";
+    camoufox-nix.url = "github:maximoffua/camoufox-nix";
     catppuccin-userstyles-export = {
       flake = false;
       url = "file+https://github.com/catppuccin/userstyles/releases/download/all-userstyles-export/import.json";
@@ -57,9 +58,21 @@
       inputs.nixpkgs.follows = "nixpkgs";
       url = "github:nix-community/NUR";
     };
+    pyproject-build-systems = {
+      inputs.nixpkgs.follows = "nixpkgs";
+      url = "github:pyproject-nix/build-system-pkgs";
+    };
+    pyproject-nix = {
+      inputs.nixpkgs.follows = "nixpkgs";
+      url = "github:pyproject-nix/pyproject.nix";
+    };
     tapbridge = {
       inputs.nixpkgs.follows = "nixpkgs";
       url = "github:ethernet8023/tapbridge/feat/linux";
+    };
+    uv2nix = {
+      inputs.nixpkgs.follows = "nixpkgs";
+      url = "github:pyproject-nix/uv2nix";
     };
     vscode-ext = {
       inputs.nixpkgs.follows = "nixpkgs";

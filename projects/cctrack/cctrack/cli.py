@@ -8,6 +8,8 @@
 from __future__ import annotations
 
 import asyncio
+import os
+import sqlite3
 import sys
 from datetime import UTC, date, datetime
 from pathlib import Path
@@ -162,6 +164,7 @@ def categorize(db: Path = typer.Option(None, "--db", help="database path")) -> N
 def serve(
     port: int = typer.Option(5001, "--port"),
     host: str = typer.Option("127.0.0.1", "--host"),
+    db: Path = typer.Option(None, "--db", help="database path"),
     auto_sync: bool = typer.Option(
         False, "--auto-sync", help="sync on a timer while the server runs"
     ),
@@ -169,6 +172,12 @@ def serve(
 ) -> None:
     """Start the web UI -- the primary interface for review and reporting."""
     from cctrack.web.app import main
+
+    # The web app resolves the database itself through db_path(), which reads
+    # CCTRACK_DB; setting it here keeps `serve --db` behaving like every other
+    # command instead of threading a path through fasthtml.
+    if db is not None:
+        os.environ["CCTRACK_DB"] = str(db)
 
     main(host=host, port=port, auto_sync=auto_sync, interval_minutes=every)
 
@@ -200,6 +209,38 @@ def status(db: Path = typer.Option(None, "--db", help="database path")) -> None:
     ).fetchone()["n"]
     if uncategorized:
         typer.echo(f"\n{uncategorized} uncategorized")
+
+
+@app.command()
+def snapshot(
+    dest: Path = typer.Argument(..., help="path to write the copy to"),
+    db: Path = typer.Option(None, "--db", help="database path"),
+) -> None:
+    """Write a consistent copy of the database -- for development.
+
+    sqlite's backup API rather than a file copy: the server has the database
+    open, so `cp` can catch a half-written page or miss the WAL entirely. Safe
+    to run while `cctrack serve` is up, which is the point -- the dev loop
+    snapshots production rather than editing it.
+    """
+    src = db or db_path()
+    if not src.exists():
+        typer.echo(f"no database at {src}")
+        raise typer.Exit(1)
+
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.unlink(missing_ok=True)
+
+    source = connect(src)
+    target = sqlite3.connect(dest)
+    try:
+        source.backup(target)
+    finally:
+        target.close()
+        source.close()
+
+    size = dest.stat().st_size
+    typer.echo(f"  {dest}  ({size / 1024 / 1024:.1f} MiB)")
 
 
 if __name__ == "__main__":
