@@ -243,5 +243,31 @@ def snapshot(
     typer.echo(f"  {dest}  ({size / 1024 / 1024:.1f} MiB)")
 
 
+beeper_app = typer.Typer(
+    help="Beeper Desktop's local API -- where CIBC's sign-on code arrives.",
+    no_args_is_help=True,
+)
+app.add_typer(beeper_app, name="beeper")
+
+
+@beeper_app.command("auth")
+def beeper_auth(
+    timeout: int = typer.Option(
+        180, "--timeout", help="seconds to wait for the approval click"
+    ),
+) -> None:
+    """Authorise cctrack against Beeper Desktop and save the token.
+
+    Beeper Desktop shows an in-app approval prompt and the token lasts a day, so
+    this is the thing to rerun when a sync reports "token rejected". On a
+    headless box the prompt is invisible: run this on the machine you can see,
+    or forward 23373 and 8765 to it and open the printed URL in your own browser.
+    """
+    from cctrack.secrets.beeper import authorize, token_path
+
+    token = authorize(timeout_s=timeout)
+    typer.echo(f"  token saved to {token_path()} ({len(token)} chars)")
+
+
 if __name__ == "__main__":
     sys.exit(app())
