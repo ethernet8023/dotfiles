@@ -56,16 +56,15 @@
         user = "ethernet";
       };
 
-      # forgejo rides bellona's own sshd on :22, so the clone url it advertises
-      # is ssh://git@git.packet.dog/<user>/<repo> -- and that name resolves to
-      # the public IP, where the router forwards only 443. remap it to bellona's
-      # tailnet address, the one route that works from every machine in the
-      # fleet (LAN clients included, since they are on the tailnet too). this
-      # needs `tailscale set --ssh=false` on the box: tailscale ssh owns :22 on
-      # the tailnet and would answer instead of sshd.
+      # forgejo's built-in sshd on bellona. the clone url it advertises is
+      # ssh://git@git.packet.dog:2222/<user>/<repo>, but that name resolves to
+      # the public IP and the router forwards only 443 -- so remap it to
+      # bellona's tailnet address, the one route that works from every machine
+      # in the fleet (LAN clients included, since they are on the tailnet too).
       "git.packet.dog" = {
         hostname = "100.95.51.7";
         user = "git";
+        port = 2222;
       };
 
       # ── house ──

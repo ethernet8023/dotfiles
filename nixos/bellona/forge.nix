@@ -6,18 +6,10 @@
 # the forgejo session. the account is created in preStart rather than through the
 # install wizard, which is why the config is fully declarative here.
 #
-# git rides the box's OWN sshd on :22 -- no second daemon, no extra firewall
-# port, and her normal ssh keys are what authenticate. forgejo writes its
-# authorized_keys into its home (stateDir/.ssh/authorized_keys), which is sshd's
-# default AuthorizedKeysFile for that account, so each entry carries forgejo's
-# `serv key-N` forced command. the account is named `git` so clone urls read
-# git@<host> like every other forge; the module only auto-creates an account
-# called `forgejo`, hence the explicit user below.
-#
-# the tailnet is the exception: tailscale ssh owns :22 there, so a tailnet client
-# reaches tailscaled instead of sshd, and tailscaled authenticates by tailnet
-# identity and never runs forgejo's forced command. `tailscale set --ssh=false`
-# on the box hands :22 back to sshd for every path.
+# push is git over ssh on 2222, served by forgejo's own sshd, and the firewall
+# scopes that port to the house LAN, the tailnet and loopback -- anything else is
+# refused. port 22 is not an option: on the tailnet tailscale ssh answers on 22
+# before forgejo's sshd would ever see the connection, and that stays on.
 #
 # state stays on the NVMe: repos, the sqlite db, lfs blobs and app.ini are
 # appdata-scale, and a stateDir under /tank would race the pool -- tmpfiles
@@ -34,6 +26,7 @@ let
   domain = cfg.domain;
   gitDomain = "git.${domain}";
   httpPort = 3001;
+  sshPort = 2222;
   exe = "${config.services.forgejo.package}/bin/forgejo";
 in
 {
@@ -44,22 +37,18 @@ in
       httpAddress = "127.0.0.1";
       httpPort = httpPort;
       lfs.enable = true;
-      # sshd has to have a real account to authenticate; git@ is the name the
-      # clone url should read, and it doubles as the unit's runtime user.
-      user = "git";
-      group = "git";
 
       settings = {
         server = {
           DOMAIN = gitDomain;
           ROOT_URL = "https://${gitDomain}/";
-          # system sshd, not the built-in one: the module then adds a
-          # `Match User git` block carrying AcceptEnv GIT_PROTOCOL, which is what
-          # protocol v2 needs.
-          START_SSH_SERVER = false;
-          SSH_CREATE_AUTHORIZED_KEYS_FILE = true;
+          START_SSH_SERVER = true;
           SSH_DOMAIN = gitDomain;
-          SSH_PORT = 22;
+          SSH_PORT = sshPort;
+          SSH_LISTEN_PORT = sshPort;
+          # the built-in sshd identifies the account by public key alone; this
+          # only makes the advertised clone url read git@ instead of forgejo@.
+          BUILTIN_SSH_SERVER_USER = "git";
         };
         # caddy terminates tls, so the session cookie must never travel in clear.
         session.COOKIE_SECURE = true;
@@ -80,16 +69,6 @@ in
       };
     };
 
-    # the module skips its own account creation when the runtime user is not
-    # `forgejo`, and sshd's StrictModes wants this home owned by the same name.
-    users.users.git = {
-      home = config.services.forgejo.stateDir;
-      useDefaultShell = true;
-      group = "git";
-      isSystemUser = true;
-    };
-    users.groups.git = { };
-
     # the module's own preStart ends with `forgejo migrate`, so appending here
     # runs against a schema that exists. `admin user create` exits non-zero when
     # the account is already present, hence the list guard. the account is admin
@@ -100,6 +79,23 @@ in
         ${exe} admin user create --admin --username ethie \
           --email arilotter@gmail.com --random-password
       fi
+    '';
+
+    # the router forwards only 443, but scope 2222 explicitly rather than
+    # leaning on that: accept the house LAN, the tailnet and loopback, refuse
+    # everything else. inserted at the head of nixos-fw so a stranger cannot
+    # reach the port even if it is ever forwarded, and refused rather than
+    # dropped so clients fail fast. same shape as the :22 block in ingress.nix;
+    # both are dport-scoped, so the two sets cannot shadow each other.
+    networking.firewall.extraCommands = ''
+      iptables -w -I nixos-fw 1 -p tcp --dport 2222 -s 192.168.2.0/24 -j nixos-fw-accept
+      iptables -w -I nixos-fw 2 -p tcp --dport 2222 -s 100.64.0.0/10 -j nixos-fw-accept
+      iptables -w -I nixos-fw 3 -p tcp --dport 2222 -s 127.0.0.0/8 -j nixos-fw-accept
+      iptables -w -I nixos-fw 4 -p tcp --dport 2222 -j nixos-fw-refuse
+      ip6tables -w -I nixos-fw 1 -p tcp --dport 2222 -s fd7a:115c:a1e0::/48 -j nixos-fw-accept
+      ip6tables -w -I nixos-fw 2 -p tcp --dport 2222 -s fe80::/10 -j nixos-fw-accept
+      ip6tables -w -I nixos-fw 3 -p tcp --dport 2222 -s ::1/128 -j nixos-fw-accept
+      ip6tables -w -I nixos-fw 4 -p tcp --dport 2222 -j nixos-fw-refuse
     '';
   };
 }
