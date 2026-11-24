@@ -155,7 +155,7 @@ in
     settings = {
       # local plugin source: the homelab bar widget lives in this repo.
       plugins = {
-        sources = [
+        source = [
           {
             name = "packet";
             kind = "path";
