@@ -109,6 +109,13 @@ in
     settings.model_aliases.spark = spark // {
       model = "DeepSeek-V4.1-Flash-1017";
     };
+    # `--provider spark` reads `providers:`, NOT `model_aliases:` — without
+    # this entry the flag dies with "Unknown provider 'spark'" while
+    # `/model spark` keeps working, which reads as "the spark provider is
+    # broken". Same single `spark` binding so base_url/api_key can't drift.
+    settings.providers.spark = spark // {
+      model = "DeepSeek-V4.1-Flash-1017";
+    };
   };
 
   programs.fish.shellAliases = {
