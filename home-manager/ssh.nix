@@ -56,6 +56,17 @@
         user = "ethernet";
       };
 
+      # forgejo's built-in sshd on bellona. the clone url it advertises is
+      # ssh://git@git.packet.dog:2222/<user>/<repo>, but that name resolves to
+      # the public IP and the router forwards only 443 -- so remap it to
+      # bellona's tailnet address, the one route that works from every machine
+      # in the fleet (LAN clients included, since they are on the tailnet too).
+      "git.packet.dog" = {
+        hostname = "100.95.51.7";
+        user = "git";
+        port = 2222;
+      };
+
       # ── house ──
       phobos = {
         hostname = "phobos.tail5b83ba.ts.net";
