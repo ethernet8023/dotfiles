@@ -11,10 +11,8 @@ let
   # One binding on purpose: the two used to carry the model name separately and
   # drifted apart (GLM-5.3 here, DeepSeek on bellona) whenever the pair got
   # re-served.
-  #
-  # mDNS name on purpose: DHCP moves the .154 lease around; avahi tracks it.
   spark = {
-    base_url = "http://phobos.local:8888/v1";
+    base_url = "http://192.168.2.159:8888/v1";
     provider = "custom";
     api_key = "local";
   };
