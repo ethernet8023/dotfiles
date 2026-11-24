@@ -42,11 +42,7 @@ in
             {
               targets = [
                 "127.0.0.1:9100"
-                # luna and phobos are scraped over the LAN, not the tailnet:
-                # bellona sits on dahlia's tailnet (giraffa-richter), and
-                # ethie's 100.108/100.102 peers are not routable from here.
-                # neither box runs node_exporter yet, so both are left out
-                # rather than pinned as permanently-down targets.
+                "192.168.2.61:9100" # luna, over the house LAN
               ];
             }
           ];

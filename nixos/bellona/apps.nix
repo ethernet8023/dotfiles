@@ -345,8 +345,8 @@ in
           fi
         }
         snap_local
-        snap_remote luna ethie@100.108.28.67 /home/ethie/.hermes
-        snap_remote hermes ethie@hermes.tail5b83ba.ts.net /home/ari/.hermes
+        snap_remote luna ethie@luna.local /home/ethie/.hermes
+        snap_remote hermes ethie@hermes.local /home/ari/.hermes
         snap_remote iris ethernet@iris.local /Users/ethernet/.hermes
       '';
     };
