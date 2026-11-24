@@ -8,6 +8,10 @@ against 134 real files, 7,860 rows:
 
 Exactly one of debit/credit is populated. Amounts are parsed via Decimal and
 stored as integer cents; no float ever touches the money path.
+
+Chequing and Savings descriptions additionally begin with a channel prefix
+naming how the money moved; see CHANNEL_PREFIXES. VISA descriptions do not,
+so a VISA row's channel is unknown rather than absent.
 """
 
 from __future__ import annotations
@@ -19,6 +23,40 @@ from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 
 WHITESPACE_RUN = re.compile(r"\s+")
+
+# How the money moved, keyed by the literal prefix CIBC writes at the start of
+# a Chequing/Savings description. Checked longest-first, because the two
+# point-of-sale prefixes share a stem.
+#
+# Verified closed against the full downloaded history: every one of the 2,314
+# Chequing and Savings rows matches exactly one of these, none match two.
+CHANNEL_PREFIXES: tuple[tuple[str, str], ...] = (
+    ("Point of Sale - Visa Debit", "visa_debit_pos"),
+    ("Point of Sale - Interac", "interac_pos"),
+    ("Automated Banking Machine", "abm"),
+    ("Electronic Funds Transfer", "eft"),
+    ("Internet Banking", "online_banking"),
+    ("Branch Transaction", "branch"),
+)
+
+CHANNELS = frozenset(channel for _, channel in CHANNEL_PREFIXES)
+
+# Channels that require the physical card at a physical terminal. Visa Debit
+# is excluded on purpose: the same prefix covers a tap at a shop and a card
+# number typed into a website, and the export does not distinguish them.
+CARD_PRESENT_CHANNELS = frozenset({"interac_pos", "abm"})
+
+
+def channel_of(description: str) -> str | None:
+    """Which channel a description names, or None if it names none.
+
+    None means unknown, not 'no channel': VISA rows carry a bare merchant
+    string with no prefix at all, so nothing can be concluded from them.
+    """
+    for prefix, channel in CHANNEL_PREFIXES:
+        if description.startswith(prefix):
+            return channel
+    return None
 
 
 class ParseError(ValueError):
@@ -33,6 +71,7 @@ class ParsedTx:
     description: str
     amount_cents: int
     card_last4: str | None
+    channel: str | None = None  # None = the export does not say
 
 
 def _money_to_cents(raw: str) -> int:
@@ -103,12 +142,19 @@ def parse_csv(text: str) -> list[ParsedTx]:
         # Debit is money out. Store the sign so later maths never has to guess.
         amount_cents = -_money_to_cents(debit) if debit else _money_to_cents(credit)
 
+        # CIBC pads descriptions with runs of spaces.
+        description = WHITESPACE_RUN.sub(" ", description).strip()
+
         rows.append(ParsedTx(
             posted_on=posted_on,
-            # CIBC pads descriptions with runs of spaces.
-            description=WHITESPACE_RUN.sub(" ", description).strip(),
+            # Stored verbatim: the description is part of a transaction's
+            # fingerprint, so stripping the channel prefix out of it here
+            # would change every existing row's identity and re-import the
+            # entire history as new.
+            description=description,
             amount_cents=amount_cents,
             card_last4=(card or "").strip()[-4:] or None,
+            channel=channel_of(description),
         ))
 
     return rows

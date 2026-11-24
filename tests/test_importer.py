@@ -191,3 +191,50 @@ def test_amounts_and_cards_are_stored(tmp_path):
 def test_importing_nothing_is_not_an_error(tmp_path):
     con, acct = db(tmp_path)
     assert import_transactions(con, acct, []) == 0
+
+
+# --- channel --------------------------------------------------------------
+
+
+CHANNELLED = (
+    "2026-06-01,Point of Sale - Interac RETAIL PURCHASE 1 SHOP,10.00,\n"
+    "2026-06-02,Automated Banking Machine ATM WITHDRAWAL COLLEGE,20.00,\n"
+    "2026-06-03,Internet Banking E-TRANSFER 999 someone,30.00,\n"
+)
+
+
+def test_the_channel_is_stored(tmp_path):
+    con, acct = db(tmp_path)
+    import_csv(con, acct, CHANNELLED)
+    stored = [
+        r["channel"] for r in con.execute(
+            "SELECT channel FROM transactions ORDER BY posted_on"
+        )
+    ]
+    assert stored == ["interac_pos", "abm", "online_banking"]
+
+
+def test_a_visa_row_stores_no_channel(tmp_path):
+    con, acct = db(tmp_path)
+    import_csv(con, acct, "2026-06-01,TIM HORTONS #1 TORONTO ON,4.50,,4500****0000\n")
+    assert con.execute("SELECT channel FROM transactions").fetchone()["channel"] is None
+
+
+def test_adding_the_channel_did_not_change_any_fingerprint(tmp_path):
+    """The channel must be derived, never part of a row's identity.
+
+    Deriving it from the description means it cannot shift a fingerprint --
+    but only as long as the description is stored untouched. If a later change
+    trims the prefix out, this pins the resulting silent re-import.
+    """
+    (tx,) = parse_csv("2026-06-01,Branch Transaction SERVICE CHARGE,4.95,\n")
+    assert tx.channel == "branch"
+    assert fingerprint(1, tx, 0) == (
+        "a86c9d5d700e2969b3b5175c41773149e41a2809af0f573eb7dddc9be7ab69e6"
+    )
+
+
+def test_reimporting_after_the_channel_landed_adds_nothing(tmp_path):
+    con, acct = db(tmp_path)
+    assert import_csv(con, acct, CHANNELLED) == 3
+    assert import_csv(con, acct, CHANNELLED) == 0

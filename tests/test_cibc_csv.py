@@ -6,7 +6,13 @@ from __future__ import annotations
 
 import pytest
 
-from cctrack.ingest.cibc_csv import ParseError, parse_csv
+from cctrack.ingest.cibc_csv import (
+    CARD_PRESENT_CHANNELS,
+    CHANNELS,
+    ParseError,
+    channel_of,
+    parse_csv,
+)
 
 VISA_ROW = "2026-06-03,TIM HORTONS #1234 TORONTO ON,12.34,,4500********0000\n"
 CHEQUING_ROW = "2026-06-05,Branch Transaction SERVICE CHARGE,4.95,\n"
@@ -104,6 +110,70 @@ def test_commas_inside_a_quoted_description_are_preserved():
 def test_padded_descriptions_are_collapsed():
     (tx,) = parse_csv("2026-01-01,A    B     C,1.00,\n")
     assert tx.description == "A B C"
+
+
+# --- channel --------------------------------------------------------------
+
+
+def test_chequing_channels_are_read_from_the_prefix():
+    cases = {
+        "Point of Sale - Interac RETAIL PURCHASE 621000521008 DAYALI": "interac_pos",
+        "Point of Sale - Visa Debit INTL VISA DEB RETAIL PURCHASE DL": "visa_debit_pos",
+        "Automated Banking Machine ATM WITHDRAWAL COLLEGE and GRACE": "abm",
+        "Electronic Funds Transfer PREAUTHORIZED DEBIT ROGERS": "eft",
+        "Internet Banking E-TRANSFER 106053271955 Alysha": "online_banking",
+        "Branch Transaction SERVICE CHARGE": "branch",
+    }
+    for description, expected in cases.items():
+        (tx,) = parse_csv(f"2026-01-01,{description},1.00,\n")
+        assert tx.channel == expected, description
+
+
+def test_visa_debit_wins_over_the_interac_prefix():
+    """Both begin 'Point of Sale - '; the longer match must be tried first."""
+    (tx,) = parse_csv(
+        "2026-01-01,Point of Sale - Visa Debit VISA DEBIT RETAIL PURCHASE X,1.00,\n"
+    )
+    assert tx.channel == "visa_debit_pos"
+
+
+def test_a_visa_row_has_no_channel():
+    """VISA descriptions are bare merchant strings, so nothing can be read.
+
+    None must mean unknown here, never 'online' -- a VISA tap in a shop and a
+    saved-card checkout look identical in this export.
+    """
+    (tx,) = parse_csv(VISA_ROW)
+    assert tx.channel is None
+
+
+def test_the_channel_prefix_stays_in_the_description():
+    """The description feeds the fingerprint; trimming it re-imports history."""
+    (tx,) = parse_csv("2026-01-01,Branch Transaction SERVICE CHARGE,4.95,\n")
+    assert tx.description == "Branch Transaction SERVICE CHARGE"
+
+
+def test_channel_matching_is_case_sensitive():
+    """Guards the SQL backfill, which uses substr(...)= for the same reason.
+
+    SQLite's LIKE is case-insensitive for ASCII. If this parser ever became
+    case-insensitive too, the two would still agree; if only the SQL did, old
+    and new rows would be classified differently. Pin the stricter behaviour.
+    """
+    assert channel_of("BRANCH TRANSACTION SERVICE CHARGE") is None
+    assert channel_of("Branch Transaction SERVICE CHARGE") == "branch"
+
+
+def test_every_channel_is_labelled_by_a_known_name():
+    assert CHANNELS == {
+        "interac_pos", "visa_debit_pos", "abm", "eft", "online_banking", "branch",
+    }
+
+
+def test_card_present_channels_exclude_visa_debit():
+    """One prefix covers both a tap and a card number typed into a website."""
+    assert CARD_PRESENT_CHANNELS == {"interac_pos", "abm"}
+    assert CARD_PRESENT_CHANNELS < CHANNELS
 
 
 # --- rejection ------------------------------------------------------------

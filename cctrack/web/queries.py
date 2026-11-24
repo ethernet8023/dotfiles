@@ -10,6 +10,27 @@ import sqlite3
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 
+from cctrack.ingest.cibc_csv import CARD_PRESENT_CHANNELS
+
+# Human wording for a stored channel. A channel absent from this map is shown
+# by its stored value rather than hidden, so a new CIBC prefix is visible as
+# soon as it lands instead of silently reading as unknown.
+CHANNEL_LABELS = {
+    "interac_pos": "Interac tap",
+    "visa_debit_pos": "Visa Debit",
+    "abm": "ATM",
+    "eft": "Preauthorized",
+    "online_banking": "Online",
+    "branch": "Branch",
+}
+
+
+def channel_label(channel: str | None) -> str:
+    """What to print for a channel. Unknown is shown, not blanked."""
+    if channel is None:
+        return "+?"
+    return CHANNEL_LABELS.get(channel, channel)
+
 
 @dataclass(frozen=True)
 class AccountSummary:
@@ -87,6 +108,7 @@ def recent_transactions(
     account: str | None = None,
     search: str | None = None,
     uncategorized_only: bool = False,
+    channel: str | None = None,
 ) -> list[sqlite3.Row]:
     where = []
     params: list[object] = []
@@ -98,12 +120,15 @@ def recent_transactions(
         params.append(f"%{search}%")
     if uncategorized_only:
         where.append("t.category_id IS NULL")
+    if channel:
+        where.append("t.channel = ?")
+        params.append(channel)
 
     clause = f"WHERE {' AND '.join(where)}" if where else ""
     params.extend([limit, offset])
     return con.execute(
         f"SELECT t.id, t.posted_on, t.description, t.amount_cents, t.card_last4, "
-        f"       a.name AS account, c.name AS category "
+        f"       t.channel, a.name AS account, c.name AS category "
         f"FROM transactions t "
         f"JOIN accounts a ON a.id = t.account_id "
         f"LEFT JOIN categories c ON c.id = t.category_id "
@@ -118,6 +143,7 @@ def count_transactions(
     account: str | None = None,
     search: str | None = None,
     uncategorized_only: bool = False,
+    channel: str | None = None,
 ) -> int:
     where = []
     params: list[object] = []
@@ -129,6 +155,9 @@ def count_transactions(
         params.append(f"%{search}%")
     if uncategorized_only:
         where.append("t.category_id IS NULL")
+    if channel:
+        where.append("t.channel = ?")
+        params.append(channel)
 
     clause = f"WHERE {' AND '.join(where)}" if where else ""
     return con.execute(
@@ -136,6 +165,39 @@ def count_transactions(
         f"JOIN accounts a ON a.id = t.account_id {clause}",
         params,
     ).fetchone()["n"]
+
+
+def last_card_present(con: sqlite3.Connection) -> sqlite3.Row | None:
+    """The most recent transaction that needed the physical card in hand.
+
+    Only the channels that cannot happen without the card at a terminal count
+    -- an Interac tap or an ATM. Visa Debit is left out because CIBC uses the
+    one prefix for both a tap in a shop and a card number typed into a
+    website, so counting it would overstate the answer.
+
+    Returns None when nothing qualifies, which includes a database holding
+    only VISA rows: those carry no channel at all.
+    """
+    placeholders = ", ".join("?" * len(CARD_PRESENT_CHANNELS))
+    return con.execute(
+        f"SELECT t.posted_on, t.description, t.amount_cents, t.channel, "
+        f"       a.name AS account "
+        f"FROM transactions t JOIN accounts a ON a.id = t.account_id "
+        f"WHERE t.channel IN ({placeholders}) "
+        f"ORDER BY t.posted_on DESC, t.id DESC LIMIT 1",
+        sorted(CARD_PRESENT_CHANNELS),
+    ).fetchone()
+
+
+def channel_counts(con: sqlite3.Connection) -> list[tuple[str | None, int]]:
+    """(channel, rows) most common first, including the unknown bucket."""
+    return [
+        (r["channel"], r["n"])
+        for r in con.execute(
+            "SELECT channel, count(*) n FROM transactions "
+            "GROUP BY channel ORDER BY n DESC"
+        )
+    ]
 
 
 def account_names(con: sqlite3.Connection) -> list[str]:

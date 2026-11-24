@@ -16,7 +16,11 @@ from cctrack.web.auth import token_matches
 from cctrack.web.jobs import JobRunner
 from cctrack.web.queries import (
     account_summaries,
+    channel_counts,
+    channel_label,
+    count_transactions,
     daily_cumulative,
+    last_card_present,
     month_spend,
     recent_transactions,
     uncategorized_count,
@@ -88,6 +92,93 @@ def test_search_filters_descriptions(db):
     rows = recent_transactions(connect(db), search="COFFEE")
     assert len(rows) == 1
     assert "COFFEE" in rows[0]["description"]
+
+
+# --- channel --------------------------------------------------------------
+
+
+CHANNELLED = (
+    "2026-06-04,Point of Sale - Interac RETAIL PURCHASE 1 CORNER SHOP,7.24,\n"
+    "2026-06-06,Internet Banking E-TRANSFER 999 someone,30.00,\n"
+    "2026-06-08,Automated Banking Machine ATM WITHDRAWAL COLLEGE,200.00,\n"
+    "2026-06-09,Point of Sale - Visa Debit VISA DEBIT RETAIL PURCHASE X,9.00,\n"
+)
+
+
+@pytest.fixture
+def chequing_db(tmp_path):
+    """A database holding both a VISA account and a channel-bearing one."""
+    path = tmp_path / "mixed.db"
+    con = connect(path)
+    import_csv(con, ensure_account(con, "CIBC VISA", "credit"), SAMPLE)
+    import_csv(con, ensure_account(con, "Chequing", "debit"), CHANNELLED)
+    con.commit()
+    return path
+
+
+def test_filtering_by_channel(chequing_db):
+    con = connect(chequing_db)
+    rows = recent_transactions(con, channel="interac_pos")
+    assert [r["description"] for r in rows] == [
+        "Point of Sale - Interac RETAIL PURCHASE 1 CORNER SHOP"
+    ]
+    assert count_transactions(con, channel="interac_pos") == 1
+
+
+def test_channel_counts_include_the_unknown_bucket(chequing_db):
+    counts = dict(channel_counts(connect(chequing_db)))
+    assert counts[None] == 4  # the VISA rows
+    assert counts["interac_pos"] == 1
+    assert counts["online_banking"] == 1
+
+
+def test_last_card_present_finds_the_most_recent_tap_or_withdrawal(chequing_db):
+    row = last_card_present(connect(chequing_db))
+    assert row is not None
+    assert row["posted_on"] == "2026-06-08"
+    assert row["channel"] == "abm"
+
+
+def test_last_card_present_ignores_visa_debit(chequing_db):
+    """The newest row is a Visa Debit purchase, and it must not be the answer.
+
+    CIBC uses one prefix for a tap in a shop and a card number typed into a
+    website, so counting it would answer a question the data cannot answer.
+    """
+    row = last_card_present(connect(chequing_db))
+    assert row is not None
+    assert row["posted_on"] == "2026-06-08"  # not the 09th
+
+
+def test_last_card_present_is_none_when_only_visa_rows_exist(db):
+    """A VISA-only database says nothing about physical card use."""
+    assert last_card_present(connect(db)) is None
+
+
+def test_an_unknown_channel_is_shown_not_blanked():
+    assert channel_label(None) == "+?"
+
+
+def test_an_unlabelled_channel_falls_back_to_its_stored_value():
+    """A channel CIBC starts emitting must be visible before it is named."""
+    assert channel_label("some_new_channel") == "some_new_channel"
+
+
+def test_transactions_page_shows_the_channel(client):
+    r = client.get("/transactions")
+    assert r.status_code == 200
+    assert "channel" in r.text
+
+
+def test_transactions_page_filters_by_channel(chequing_db, monkeypatch):
+    monkeypatch.setenv("CCTRACK_API_TOKEN", "test-token")
+    from cctrack.web.app import build_app
+
+    with TestClient(build_app(chequing_db)) as c:
+        r = c.get("/transactions?channel=interac_pos")
+        assert r.status_code == 200
+        assert "CORNER SHOP" in r.text
+        assert "COFFEE SHOP" not in r.text
 
 
 # --- pages ----------------------------------------------------------------

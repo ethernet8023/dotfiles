@@ -100,7 +100,9 @@ def import_transactions(
     ):
         have[(row["posted_on"], row["description"], row["amount_cents"])] = row["n"]
 
-    # Keep one sample per group, for the fields not in the key (the card).
+    # Keep one sample per group, for the fields not in the key (the card and
+    # the channel). Both are functions of fields that are in the key, so any
+    # member of the group carries the same values.
     sample = {}
     for tx in txs:
         sample.setdefault((tx.posted_on, tx.description, tx.amount_cents), tx)
@@ -110,6 +112,7 @@ def import_transactions(
     rows = [
         (
             account_id, key[0], key[1], key[2], sample[key].card_last4,
+            sample[key].channel,
             fingerprint(account_id, sample[key], ordinal), now,
         )
         for key, needed in wanted.items()
@@ -124,7 +127,7 @@ def import_transactions(
         con.executemany(
             "INSERT OR IGNORE INTO transactions "
             "(account_id, posted_on, description, amount_cents, card_last4, "
-            " fingerprint, imported_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            " channel, fingerprint, imported_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
             rows,
         )
         return con.total_changes - before

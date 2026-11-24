@@ -47,6 +47,8 @@ from cctrack.web.jobs import Job, runner
 from cctrack.web.queries import (
     account_names,
     account_summaries,
+    channel_counts,
+    channel_label,
     count_transactions,
     current_month,
     month_spend,
@@ -342,20 +344,32 @@ def build_app(db=None, *, auto_sync: bool = False, interval_minutes: int = 60):
         )
 
     @rt("/transactions")
-    def transactions(account: str = "", q: str = "", page_no: int = 1):
+    def transactions(account: str = "", q: str = "", channel: str = "",
+                     page_no: int = 1):
         c = con()
         per = 100
         offset = max(0, (page_no - 1) * per)
-        total = count_transactions(c, account=account or None, search=q or None)
-        rows = recent_transactions(
-            c, limit=per, offset=offset, account=account or None, search=q or None
+        total = count_transactions(
+            c, account=account or None, search=q or None, channel=channel or None
         )
+        rows = recent_transactions(
+            c, limit=per, offset=offset, account=account or None,
+            search=q or None, channel=channel or None,
+        )
+
+        # Offered channels come from the data, not the label map, so a channel
+        # CIBC starts emitting is filterable before anyone names it.
+        present = [ch for ch, _ in channel_counts(c) if ch is not None]
 
         controls = Form(
             Select(Option("all accounts", value=""),
                    *[Option(n, value=n, selected=(n == account))
                      for n in account_names(c)],
                    name="account"),
+            Select(Option("any channel", value=""),
+                   *[Option(channel_label(ch), value=ch, selected=(ch == channel))
+                     for ch in present],
+                   name="channel"),
             Input(name="q", value=q, placeholder="search description"),
             Input(type="submit", value="filter"),
             method="get", action="/transactions", cls="row",
@@ -365,21 +379,23 @@ def build_app(db=None, *, auto_sync: bool = False, interval_minutes: int = 60):
             Tr(Td(r["posted_on"], cls="dim"),
                Td(r["description"]),
                Td(r["account"], cls="dim"),
+               Td(channel_label(r["channel"]), cls="dim"),
                Td(r["category"] or "—", cls="dim"),
                money_cell(r["amount_cents"]))
             for r in rows
         ])
         table = Table(
             Thead(Tr(Th("date"), Th("description"), Th("account"),
-                     Th("category"), Th("amount", cls="num"))),
+                     Th("channel"), Th("category"), Th("amount", cls="num"))),
             body,
         )
 
+        query = f"account={account}&q={q}&channel={channel}"
         pages = Div(
-            A("← newer", href=f"/transactions?account={account}&q={q}&page_no={page_no - 1}")
+            A("← newer", href=f"/transactions?{query}&page_no={page_no - 1}")
             if page_no > 1 else Span("", cls="dim"),
             Span(f"{offset + 1}–{min(offset + per, total)} of {total:,}", cls="dim"),
-            A("older →", href=f"/transactions?account={account}&q={q}&page_no={page_no + 1}")
+            A("older →", href=f"/transactions?{query}&page_no={page_no + 1}")
             if offset + per < total else Span("", cls="dim"),
             cls="row", style="margin-top:1rem",
         )
