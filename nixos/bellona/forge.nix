@@ -11,6 +11,10 @@
 # refused. port 22 is not an option: on the tailnet tailscale ssh answers on 22
 # before forgejo's sshd would ever see the connection, and that stays on.
 #
+# ssh keys are not a UI step: they come from ssh-pubkeys.nix's `mesh`, seeded
+# through the api by a oneshot after the server is up, because forgejo keeps keys
+# in its database and its CLI has no add-key.
+#
 # state stays on the NVMe: repos, the sqlite db, lfs blobs and app.ini are
 # appdata-scale, and a stateDir under /tank would race the pool -- tmpfiles
 # would create it on the root fs before tank.mount shadows it, and anything
@@ -28,6 +32,20 @@ let
   httpPort = 3001;
   sshPort = 2222;
   exe = "${config.services.forgejo.package}/bin/forgejo";
+
+  # ssh-pubkeys.nix holds the keys as named strings plus a `mesh` list of the same
+  # values, so the names are recovered by membership -- those names are the titles
+  # forgejo shows in its key list.
+  pubkeys = import ../../ssh-pubkeys.nix;
+  keyPayloads = lib.mapAttrsToList (name: key: {
+    inherit name;
+    file = pkgs.writeText "forgejo-key-${name}.json" (
+      builtins.toJSON {
+        title = name;
+        key = key;
+      }
+    );
+  }) (lib.filterAttrs (_: key: builtins.elem key pubkeys.mesh) pubkeys);
 in
 {
   config = lib.mkIf cfg.enable {
@@ -80,6 +98,62 @@ in
           --email arilotter@gmail.com --random-password
       fi
     '';
+
+    # forgejo has no CLI for ssh keys, so the flake's mesh keys are seeded through
+    # the api instead: mint an access token into the state dir, then POST a
+    # payload per key. 422 means "already present", which is what makes this
+    # idempotent across switches; restartTriggers re-runs it when the key list
+    # changes. the token name is suffixed with $$ so a remint after a db wipe
+    # cannot collide with the old row.
+    systemd.services.forgejo-ssh-keys = {
+      description = "seed the flake's ssh keys into forgejo";
+      after = [ "forgejo.service" ];
+      requires = [ "forgejo.service" ];
+      wantedBy = [ "multi-user.target" ];
+      restartTriggers = [ (builtins.toJSON keyPayloads) ];
+      environment = {
+        FORGEJO_WORK_DIR = config.services.forgejo.stateDir;
+        FORGEJO_CUSTOM = config.services.forgejo.customDir;
+      };
+      serviceConfig = {
+        Type = "oneshot";
+        User = config.services.forgejo.user;
+        Group = config.services.forgejo.group;
+        UMask = "0077";
+        RemainAfterExit = true;
+      };
+      script = ''
+        set -euo pipefail
+        api=http://127.0.0.1:${toString httpPort}/api/v1
+        tok=${config.services.forgejo.stateDir}/.bootstrap-token
+        curl_() {
+          ${pkgs.curl}/bin/curl -sS --max-time 15 --retry 5 --retry-connrefused \
+            --retry-delay 2 -o /dev/null -w '%{http_code}' "$@"
+        }
+        mint() {
+          ${exe} admin user generate-access-token --username ethie \
+            --token-name "dotfiles-$$" --scopes all --raw > "$tok"
+        }
+        [ -s "$tok" ] || mint
+        # a token minted against a db that has since been wiped is dead; remint
+        # once before seeding.
+        if [ "$(curl_ -H "Authorization: token $(cat "$tok")" "$api/user")" = 401 ]; then
+          rm -f "$tok"
+          mint
+        fi
+        ${lib.concatMapStringsSep "\n" (p: ''
+          code=$(curl_ -H "Authorization: token $(cat "$tok")" \
+            -H 'Content-Type: application/json' --data @${p.file} "$api/user/keys")
+          case "$code" in
+            200|201|422) echo "forgejo key ${p.name}: $code" ;;
+            *)
+              echo "forgejo key ${p.name}: failed with $code" >&2
+              exit 1
+              ;;
+          esac
+        '') keyPayloads}
+      '';
+    };
 
     # the router forwards only 443, but scope 2222 explicitly rather than
     # leaning on that: accept the house LAN, the tailnet and loopback, refuse
