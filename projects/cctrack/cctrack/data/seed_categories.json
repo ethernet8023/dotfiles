@@ -1,0 +1,16 @@
+{
+  "categories": [
+    {"name": "groceries",     "note": "supermarkets, corner shops"},
+    {"name": "restaurants",   "note": "eating out, cafes, delivery"},
+    {"name": "fun",           "note": "entertainment, hobbies, going out"},
+    {"name": "home",          "note": "household goods, furniture, repairs"},
+    {"name": "transit",       "note": "rides, transit fares, fuel, parking"},
+    {"name": "subscriptions", "note": "recurring digital services"},
+    {"name": "utilities",     "note": "phone, internet, hydro"},
+    {"name": "health",        "note": "pharmacy, dental, medical"},
+    {"name": "pets",          "note": "food, vet, supplies"},
+    {"name": "income",        "note": "pay, refunds, interest received"},
+    {"name": "transfer",      "note": "moving money between own accounts; not spending"},
+    {"name": "fees",          "note": "bank charges, interest paid, FX fees"}
+  ]
+}
