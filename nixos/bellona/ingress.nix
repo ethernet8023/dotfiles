@@ -133,6 +133,9 @@ in
         "torrents.${domain}" = vhost { upstream = 8080; };
         "grafana.${domain}" = vhost { upstream = 3000; };
         "hermes.${domain}" = vhost { upstream = 9120; };
+        # forgejo's web ui; 3001 matches forge.nix. the forgejo ssh endpoint is
+        # a separate port (2222) and never passes through caddy.
+        "git.${domain}" = vhost { upstream = 3001; };
         # api has no vhost: glance fetches http://127.0.0.1:8091/summary
         # server-side and the noctalia widget polls the LAN address directly, so
         # publishing it only added a bearer-token surface with no forward-auth.
@@ -198,6 +201,7 @@ in
                 "soulseek.${domain}"
                 "ha.${domain}"
                 "media.${domain}"
+                "git.${domain}"
               ];
               policy = "two_factor";
             }
