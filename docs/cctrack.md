@@ -4,17 +4,18 @@ The source is `projects/cctrack` in this repo (it used to live only on hermes,
 with no remote). It downloads transaction CSVs from CIBC, imports them into a
 local sqlite database, and serves a review/reporting UI.
 
-Production runs on bellona as two **user** units under ethernet's account:
+Production runs on bellona as **user** units under ethernet's account:
 
 | unit | what it does |
 | --- | --- |
-| `beeper` | Beeper Desktop, headless under `cage`. CIBC texts the sign-on code to the phone; Beeper syncs it, and cctrack reads it from Beeper's local API on `127.0.0.1:23373`. |
+| `beeper-profile-server` | Beeper Server, headless, managed by the `beeper` CLI (`beeper targets enable server`). CIBC texts the sign-on code to the phone; Beeper syncs it, and cctrack reads it from the client API on `127.0.0.1:23373`. |
 | `cctrack` | `cctrack serve --auto-sync --every 360` on `127.0.0.1:5001`, published at `budget.packet.dog` through caddy + authelia. |
 
-Both run under `cage` with `WLR_BACKENDS=headless`: CIBC's Akamai edge drops
-headless browsers during the h2 handshake, so the scraper has to be genuinely
-headed, and Beeper is an Electron app that needs a display either way. User
-units (not system services) because linger keeps them alive while logged out,
+`cctrack` runs under `cage` with `WLR_BACKENDS=headless`: CIBC's Akamai edge
+drops headless browsers during the h2 handshake, so the scraper has to be
+genuinely headed. Beeper used to run the same way, as Desktop under cage;
+Beeper Server is headless on its own, so it just runs as itself. User units
+(not system services) because linger keeps them alive while logged out,
 everything they write is mine, and root on that box is dahlia's.
 
 ## Why the package is a nix build
@@ -76,25 +77,36 @@ Re-encrypt after changing it:
    routine syncs skip 2FA and often the password screen. Losing it means a code
    every time.
 
-2. **Give Beeper a session.** Beeper Desktop's first-run sign-in is a GUI, and
-   the box has no visible display. Copy the already-signed-in profile instead:
+2. **Bring up Beeper Server.** `beeper` (built from `nix/pkgs/beeper-cli.nix`)
+   installs and supervises the headless runtime itself, and enables
+   `beeper-profile-server.service` in `~/.config/systemd/user` -- home-manager
+   does not declare that unit, `home-manager/hosts/bellona.nix` says why. The
+   port is pinned to 23373 because that is what cctrack's client hardcodes:
 
-       rsync -a --exclude 'Cache*' --exclude 'GPUCache' --exclude 'Code Cache' \
-         --exclude 'transcoded_cache' --exclude 'media' \
-         hermes:'~/.config/BeeperTexts/' bellona:'~/.config/BeeperTexts/'
+       beeper targets add server server --port 23373 --default
+       beeper setup --server --install --email <beeper account email>
+       beeper targets stop server    # setup leaves its own process running
+       beeper targets enable server  # systemd owns it from here on
 
-   Then `systemctl --user start beeper` and check it answers:
-   `curl -s 127.0.0.1:23373/ | head -c 100`. If it asks to log in again, run
-   `wayvnc` inside a `cage` session and connect from a laptop -- the profile
-   copy usually avoids that.
+   `setup` mails a code, asks for it, then starts device verification: approve
+   it from a signed-in Beeper device (a phone or a laptop). No other device?
+   `beeper verify recovery-key -t server --key "ABCD-EFGH-IJKL-MNOP"`. Check it
+   answers with `curl -s 127.0.0.1:23373/ | head -c 100`.
 
-3. **Authorise cctrack's Beeper API client.** cctrack keeps a bearer token in
-   `~/.config/cctrack/beeper_token.json`; copy it from the machine that already
-   authorised it. It is bound to the Beeper instance's dynamic client
-   registration, which travels with the profile copy above, so the pair works
-   together. If it does not, the OAuth flow opens a browser -- tunnel it:
-   `ssh -L 23373:127.0.0.1:23373 -L 8765:127.0.0.1:8765 bellona` and run the
-   `authorize()` helper on the box while opening the printed URL locally.
+   The Desktop profile in `~/.config/BeeperTexts` is not what the server uses
+   (its data lives in `~/.beeper/profiles/server/server`), so it can go.
+
+3. **Authorise cctrack's Beeper API client.** the bearer token in
+   `~/.config/cctrack/beeper_token.json` is bound to the instance's dynamic
+   client registration, so the Desktop one does not carry over: mint a new one
+   against the server. Beeper Server serves its approval page on the box only,
+   so tunnel both ports and run it there:
+
+       ssh -L 23373:127.0.0.1:23373 -L 8765:127.0.0.1:8765 bellona
+       ssh bellona 'cctrack beeper auth'   # open the printed URL locally
+
+   the token is short-lived (`cctrack/secrets/beeper.py` says a day), so this is
+   also the thing to rerun when a sync reports "token rejected".
 
 4. `systemctl --user start cctrack`, then `journalctl --user -u cctrack -f`
    while it does its first sync. The first sync after migration is a normal

@@ -160,17 +160,23 @@ in
 
   # ── cctrack: CIBC statements + the budget UI ─────────────────────────────
   #
-  # Two user units, both under cage (a real compositor with no visible output).
   # CIBC's Akamai edge drops headless browsers during the h2 handshake, so the
-  # scraper has to be genuinely headed; Beeper is an Electron app and needs a
-  # display too.
+  # scraper has to be genuinely headed: it runs under cage, a real compositor
+  # with no visible output.
   #
-  # User units rather than system services because linger keeps them alive
-  # while i'm logged out, everything they write is mine, and root on this box
+  # A user unit rather than a system service because linger keeps it alive
+  # while i'm logged out, everything it writes is mine, and root on this box
   # is dahlia's -- the less it has to do, the better. The package itself is
   # built by this flake (nix/pkgs/cctrack.nix), so prod is a pinned rev.
 
-  home.packages = [ cctrack-package pkgs.beeper ];
+  home.packages = [
+    cctrack-package
+
+    # the `beeper` CLI (nix/pkgs/beeper-cli.nix). nixpkgs only packages Beeper
+    # Desktop, which needs a display; this is the headless path, and it's also
+    # what installs and supervises the Beeper Server below.
+    (pkgs.callPackage ../../nix/pkgs/beeper-cli.nix { })
+  ];
 
   # The CIBC card number + password, agenix-decrypted to a runtime path. The
   # service reads it via CCTRACK_LOGIN_FILE: nothing enters the nix store and
@@ -179,33 +185,38 @@ in
     file = ../../secrets/cctrack-cibc.age;
   };
 
-  # The 2FA code comes from CIBC's SMS, which reaches Beeper through the phone.
-  # Running Beeper here rather than relaying hermes's API means a sync never
-  # depends on a laptop being awake -- and hermes's copy binds 127.0.0.1, so it
-  # was never reachable from this box anyway.
+  # ── beeper: where CIBC's SMS sign-on code lands ──────────────────────────
   #
-  # First run needs a human: Beeper Desktop signs in once (account credentials)
-  # and cctrack's API token is authorised once, both into ~/.config. See
-  # docs/cctrack.md.
-  systemd.user.services.beeper = {
-    Unit = {
-      Description = "Beeper Desktop (SMS bridge for CIBC sign-on codes)";
-      after = [ "network-online.target" ];
-      wants = [ "network-online.target" ];
-    };
-    Service = {
-      ExecStart = "${pkgs.cage}/bin/cage -- ${pkgs.beeper}/bin/beeper";
-      Restart = "on-failure";
-      RestartSec = 15;
-      Environment = [
-        "WLR_BACKENDS=headless"
-        "WLR_LIBINPUT_NO_DEVICES=1"
-        # the beeper wrapper only passes the wayland flags when this is set
-        "NIXOS_OZONE_WL=1"
-      ];
-    };
-    Install.WantedBy = [ "default.target" ];
-  };
+  # CIBC texts the code to the phone, it reaches Beeper's cloud, and cctrack
+  # reads it from the client API on 127.0.0.1:23373 -- the port
+  # cctrack's BeeperClient hardcodes, so the server target has to be pinned to
+  # it (docs/cctrack.md). Running Beeper here rather than relaying hermes's API
+  # means a sync never depends on a laptop being awake -- and hermes's copy
+  # binds 127.0.0.1, so it was never reachable from this box anyway.
+  #
+  # This used to be Beeper Desktop under cage: an Electron app that wanted a
+  # display, a profile rsynced from another machine, and a GUI sign-in. Beeper
+  # Server is the headless runtime built for exactly this, and the CLI owns its
+  # whole lifecycle -- install, auth, start/stop, logs, `beeper update --server`.
+  #
+  # deliberately NOT a home-manager unit: `beeper targets enable server` writes
+  # and enables beeper-profile-server.service in ~/.config/systemd/user itself,
+  # pointing at ~/.beeper/bin/beeper-server -- a symlink the CLI repoints when
+  # it updates. Declaring the unit here would freeze that path and race the
+  # CLI's own copy for port 23373. linger (nixos/bellona-ether.nix) is what
+  # makes it survive logout, same as everything else in this file.
+  #
+  # a fresh box needs a human once (the sign-in code arrives by email, and
+  # device verification is approved from another signed-in device):
+  #
+  #   beeper targets add server server --port 23373 --default
+  #   beeper setup --server --install --email <beeper account email>
+  #   beeper targets stop server    # hand the process over to systemd
+  #   beeper targets enable server
+  #   cctrack beeper auth           # new instance, new token; docs/cctrack.md
+  #
+  # the old Desktop profile in ~/.config/BeeperTexts is dead weight after this
+  # and safe to delete.
 
   systemd.user.services.cctrack = {
     Unit = {
