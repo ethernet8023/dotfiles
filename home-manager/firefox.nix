@@ -93,6 +93,29 @@ in
       }
       // forceInstalled;
 
+      # Kagi isn't a builtin engine, so it can't be selected by name alone: the
+      # Add entry declares it, and Default matches it by that same name. A
+      # policy survives what a profile-level engine does not -- firefox rewrites
+      # search.json.mozlz4 itself, so anything added through the UI (or through
+      # home-manager's profile search option) is gone after a launch.
+      SearchEngines = {
+        Default = "Kagi";
+        # the engine list is as frozen as the addon set above: no green "+"
+        # offered by pages that ship their own OpenSearch description.
+        PreventInstalls = true;
+        Add = [
+          {
+            Name = "Kagi";
+            URLTemplate = "https://kagi.com/search?q={searchTerms}";
+            SuggestURLTemplate = "https://kagisuggest.com/api/autosuggest?q={searchTerms}";
+            Method = "GET";
+            IconURL = "https://kagi.com/favicon-32x32.png";
+            Alias = "@k";
+            Description = "Kagi Search";
+          }
+        ];
+      };
+
       # bitwarden owns credentials. the built-in manager only competes with it.
       PasswordManagerEnabled = false;
       OfferToSaveLogins = false;
