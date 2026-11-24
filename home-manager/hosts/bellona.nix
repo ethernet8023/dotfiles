@@ -19,6 +19,10 @@ let
     conf="''${XDG_CONFIG_HOME:-$HOME/.config}/qBittorrent/qBittorrent.conf"
     [ -e "$conf" ] || ${pkgs.coreutils}/bin/install -Dm600 ${qbittorrentConf} "$conf"
   '';
+
+  # headless Beeper Server runtime. nix-built rather than downloaded by
+  # `beeper install server` -- see the beeper section below for why.
+  beeperServer = pkgs.callPackage ../../nix/pkgs/beeper-server.nix { };
 in
 {
   # ethernet@bellona -- the complete home config for my account on dahlia's box.
@@ -160,17 +164,23 @@ in
 
   # ── cctrack: CIBC statements + the budget UI ─────────────────────────────
   #
-  # Two user units, both under cage (a real compositor with no visible output).
   # CIBC's Akamai edge drops headless browsers during the h2 handshake, so the
-  # scraper has to be genuinely headed; Beeper is an Electron app and needs a
-  # display too.
+  # scraper has to be genuinely headed: it runs under cage, a real compositor
+  # with no visible output.
   #
-  # User units rather than system services because linger keeps them alive
-  # while i'm logged out, everything they write is mine, and root on this box
+  # A user unit rather than a system service because linger keeps it alive
+  # while i'm logged out, everything it writes is mine, and root on this box
   # is dahlia's -- the less it has to do, the better. The package itself is
   # built by this flake (nix/pkgs/cctrack.nix), so prod is a pinned rev.
 
-  home.packages = [ cctrack-package pkgs.beeper ];
+  home.packages = [
+    cctrack-package
+
+    # the `beeper` CLI (nix/pkgs/beeper-cli.nix). nixpkgs only packages Beeper
+    # Desktop, which needs a display; this is the headless path, and it's also
+    # what installs and supervises the Beeper Server below.
+    (pkgs.callPackage ../../nix/pkgs/beeper-cli.nix { })
+  ];
 
   # The CIBC card number + password, agenix-decrypted to a runtime path. The
   # service reads it via CCTRACK_LOGIN_FILE: nothing enters the nix store and
@@ -179,30 +189,69 @@ in
     file = ../../secrets/cctrack-cibc.age;
   };
 
-  # The 2FA code comes from CIBC's SMS, which reaches Beeper through the phone.
-  # Running Beeper here rather than relaying hermes's API means a sync never
-  # depends on a laptop being awake -- and hermes's copy binds 127.0.0.1, so it
-  # was never reachable from this box anyway.
+  # ── beeper: where CIBC's SMS sign-on code lands ──────────────────────────
   #
-  # First run needs a human: Beeper Desktop signs in once (account credentials)
-  # and cctrack's API token is authorised once, both into ~/.config. See
-  # docs/cctrack.md.
-  systemd.user.services.beeper = {
+  # CIBC texts the code to the phone, it reaches Beeper's cloud, and cctrack
+  # reads it from the client API on 127.0.0.1:23373 -- the port cctrack's
+  # BeeperClient hardcodes, which is why the target gets pinned to it. Running
+  # Beeper here rather than relaying hermes's API means a sync never depends on
+  # a laptop being awake -- and hermes's copy binds 127.0.0.1, so it was never
+  # reachable from this box anyway.
+  #
+  # This used to be Beeper Desktop under cage: an Electron app that wanted a
+  # display, a profile rsynced from another machine, and a GUI sign-in. Beeper
+  # Server is the headless runtime built for exactly this.
+  #
+  # the runtime comes from nix/pkgs/beeper-server.nix, NOT from
+  # `beeper install server`: the CLI's download is a generic-linux binary with
+  # interpreter /lib64/ld-linux-x86-64.so.2, which is stub-ld on NixOS, so it
+  # dies before binding a port ("Could not start dynamically linked
+  # executable"). autoPatchelf fixes that at build time without touching
+  # dahlia's box (no nix-ld), and the version moves with the flake instead of
+  # with a runtime download. BEEPER_SERVER_BIN is what makes the CLI run this
+  # copy rather than its own on `targets start`; `beeper update --server` still
+  # downloads into ~/.beeper and is ignored here -- bump the version instead.
+  #
+  # the unit is declared here, unlike `beeper targets enable server`, which
+  # writes its own into ~/.config/systemd/user pointing at a symlink that
+  # changes under it. this one can point at a store path because the path only
+  # changes when this file does. don't run `targets enable` on top of it, or
+  # there are two servers fighting for 23373. linger
+  # (nixos/bellona-ether.nix) is what makes it survive logout, same as
+  # everything else in this file.
+  #
+  # first run is a human pass -- the code arrives by email and device
+  # verification is approved from another signed-in Beeper device (or with the
+  # recovery key). the unit is already up, so nothing gets spawned.
+  #
+  # the sign-in is curl rather than `beeper auth email`: 0.6.4 ships a
+  # desktop-api SDK from before /v1/app/setup, so that command dies with
+  # "client.app.login.start is undefined" even though main has it. the setup
+  # endpoints are public pre-login; `beeper verify` is raw HTTP and does work.
+  # docs/cctrack.md has the calls:
+  #
+  #   beeper targets add server server --port 23373 --default
+  #   POST /v1/app/setup/{start,email,response}   # -> matrix.accessToken
+  #   jq '.auth = {...}' ~/.beeper/targets/server.json
+  #   beeper verify
+  #   cctrack beeper auth           # new instance, new token
+
+  home.sessionVariables.BEEPER_SERVER_BIN = "${beeperServer}/bin/beeper-server";
+
+  systemd.user.services.beeper-server = {
     Unit = {
-      Description = "Beeper Desktop (SMS bridge for CIBC sign-on codes)";
+      Description = "Beeper Server (SMS bridge for CIBC sign-on codes)";
       after = [ "network-online.target" ];
       wants = [ "network-online.target" ];
     };
     Service = {
-      ExecStart = "${pkgs.cage}/bin/cage -- ${pkgs.beeper}/bin/beeper";
+      ExecStart = "${beeperServer}/bin/beeper-server --host=127.0.0.1 --port=23373 --data-dir=%h/.beeper/profiles/server/server --server-env=production";
+      # `beeper targets add server server` creates this dir; starting before
+      # that is fine (empty server, unauthenticated) and the auth commands talk
+      # to it over HTTP afterwards.
+      ExecStartPre = "${pkgs.coreutils}/bin/mkdir -p %h/.beeper/profiles/server/server";
       Restart = "on-failure";
       RestartSec = 15;
-      Environment = [
-        "WLR_BACKENDS=headless"
-        "WLR_LIBINPUT_NO_DEVICES=1"
-        # the beeper wrapper only passes the wayland flags when this is set
-        "NIXOS_OZONE_WL=1"
-      ];
     };
     Install.WantedBy = [ "default.target" ];
   };
