@@ -25,6 +25,12 @@ in
     ./bellona/default.nix
   ];
 
+  # beeper-server (nix/pkgs/beeper-server.nix) carries the same unfree license
+  # marker as nixpkgs' Beeper Desktop. a predicate rather than allowUnfree
+  # because this is dahlia's box: opt in the one package i actually need, and
+  # leave her nixpkgs policy alone.
+  nixpkgs.config.allowUnfreePredicate = pkg: builtins.elem (pkgs.lib.getName pkg) [ "beeper-server" ];
+
   # system-level agenix (the hm module only decrypts ethernet's user secrets).
   # root reads ethie's user key on the box to decrypt these at activation.
   age.identityPaths = [ "/home/ethernet/.ssh/id_ed25519" ];

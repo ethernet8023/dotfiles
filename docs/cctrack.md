@@ -8,7 +8,7 @@ Production runs on bellona as **user** units under ethernet's account:
 
 | unit | what it does |
 | --- | --- |
-| `beeper-profile-server` | Beeper Server, headless, managed by the `beeper` CLI (`beeper targets enable server`). CIBC texts the sign-on code to the phone; Beeper syncs it, and cctrack reads it from the client API on `127.0.0.1:23373`. |
+| `beeper-server` | Beeper Server, headless (nix/pkgs/beeper-server.nix). CIBC texts the sign-on code to the phone; Beeper syncs it, and cctrack reads it from the client API on `127.0.0.1:23373`. |
 | `cctrack` | `cctrack serve --auto-sync --every 360` on `127.0.0.1:5001`, published at `budget.packet.dog` through caddy + authelia. |
 
 `cctrack` runs under `cage` with `WLR_BACKENDS=headless`: CIBC's Akamai edge
@@ -77,21 +77,42 @@ Re-encrypt after changing it:
    routine syncs skip 2FA and often the password screen. Losing it means a code
    every time.
 
-2. **Bring up Beeper Server.** `beeper` (built from `nix/pkgs/beeper-cli.nix`)
-   installs and supervises the headless runtime itself, and enables
-   `beeper-profile-server.service` in `~/.config/systemd/user` -- home-manager
-   does not declare that unit, `home-manager/hosts/bellona.nix` says why. The
-   port is pinned to 23373 because that is what cctrack's client hardcodes:
+2. **Sign the server in.** `beeper-server.service` comes from home-manager and
+   is already running after the switch -- the runtime is a nix build
+   (`nix/pkgs/beeper-server.nix`), because the CLI's own download is a
+   generic-linux binary that NixOS's stub-ld cannot exec. So nothing here
+   installs or starts anything. The target is pinned to 23373 because that is
+   what cctrack's client hardcodes, and the unit's data dir is that target's
+   profile dir:
 
        beeper targets add server server --port 23373 --default
-       beeper setup --server --install --email <beeper account email>
-       beeper targets stop server    # setup leaves its own process running
-       beeper targets enable server  # systemd owns it from here on
 
-   `setup` mails a code, asks for it, then starts device verification: approve
-   it from a signed-in Beeper device (a phone or a laptop). No other device?
-   `beeper verify recovery-key -t server --key "ABCD-EFGH-IJKL-MNOP"`. Check it
-   answers with `curl -s 127.0.0.1:23373/ | head -c 100`.
+   the sign-in itself is curl, not `beeper auth email`: the 0.6.4 release
+   binary bundles a desktop-api SDK that predates `/v1/app/setup`, so
+   `beeper auth email start` dies with "undefined is not an object (evaluating
+   'client.app.login.start')" even though the source on main has the command.
+   those endpoints are public before sign-in, so:
+
+       B=http://127.0.0.1:23373
+       ID=$(curl -s -X POST $B/v1/app/setup/start \
+              -H 'authorization: Bearer setup-login-public-client' | jq -r .setupRequestID)
+       curl -s -X POST $B/v1/app/setup/email -H 'authorization: Bearer setup-login-public-client' \
+              -H 'content-type: application/json' \
+              -d "{\"setupRequestID\":\"$ID\",\"email\":\"<beeper account email>\"}"
+       curl -s -X POST $B/v1/app/setup/response -H 'authorization: Bearer setup-login-public-client' \
+              -H 'content-type: application/json' \
+              -d "{\"setupRequestID\":\"$ID\",\"response\":\"<code from the email>\"}" > /tmp/beeper-login.json
+
+   hand the CLI that token, or its commands sit at "auth required":
+
+       jq --arg t "$(jq -r .matrix.accessToken /tmp/beeper-login.json)" \
+          '.auth = {accessToken: $t, tokenType: "Bearer", source: "manual"}' \
+          ~/.beeper/targets/server.json > /tmp/t.json && mv /tmp/t.json ~/.beeper/targets/server.json
+
+   verification is `beeper verify` -- that path is raw HTTP and does work:
+   approve the prompt on a signed-in phone, or `beeper verify recovery-key
+   -t server --key "ABCD-EFGH-IJKL-MNOP"`. `curl -s $B/v1/app/setup | jq .state`
+   reads `ready` when it is done, and `beeper accounts list` shows the bridges.
 
    The Desktop profile in `~/.config/BeeperTexts` is not what the server uses
    (its data lives in `~/.beeper/profiles/server/server`), so it can go.
