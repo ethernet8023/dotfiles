@@ -18,6 +18,127 @@ let
     paths:
       default: $albumartist/$album%aunique{}/$track $title
   '';
+
+  # ── dashboard generation ────────────────────────────────────────────────
+  # everything below is derived from me.bellona.apps (registry.nix), so a new
+  # service shows up on the dashboard with status, uptime and a link without
+  # anyone editing this file.
+  apps = cfg.apps;
+  published = lib.filterAttrs (_: a: a.publish && a.subdomain != null) apps;
+  apiBase = "http://127.0.0.1:8091";
+
+  # the same table homelab-api reads at runtime. it lives in the store, so it
+  # changes only when the registry does, which is exactly when the unit restarts.
+  registryJson = pkgs.writeText "homelab-apps.json" (
+    builtins.toJSON {
+      domain = cfg.domain;
+      apps = lib.mapAttrs (_: a: {
+        inherit (a)
+          title
+          port
+          subdomain
+          unit
+          healthPath
+          flavor
+          note
+          ;
+      }) apps;
+    }
+  );
+
+  appTemplate = ''
+    <div class="flex justify-between">
+      <a class="size-h4 color-highlight" href="{{ .JSON.String "url" }}">{{ .JSON.String "title" }}</a>
+      <span class="size-h6 {{ if .JSON.Bool "up" }}color-positive{{ else }}color-negative{{ end }}">{{ .JSON.String "status" }}</span>
+    </div>
+    <ul class="list-horizontal-text margin-top-10">
+      <li>uptime {{ .JSON.String "uptime_7d" }}</li>
+      <li>{{ .JSON.Int "restarts_30d" }} restarts</li>
+      <li>{{ .JSON.Int "latency_ms" }}ms</li>
+    </ul>
+    <p class="size-h6 color-paragraph margin-top-10">{{ .JSON.String "info" }}</p>
+  '';
+
+  machineTemplate = ''
+    <div class="flex justify-between text-center">
+      <div>
+        <div class="size-h3 color-highlight">{{ .JSON.Float "cpu_pct" | printf "%.0f" }}%</div>
+        <div class="size-h6">CPU</div>
+      </div>
+      <div>
+        <div class="size-h3 color-highlight">{{ .JSON.Float "mem_pct" | printf "%.0f" }}%</div>
+        <div class="size-h6">RAM</div>
+      </div>
+      <div>
+        <div class="size-h3 color-highlight">{{ .JSON.Float "gpu_pct" | printf "%.0f" }}%</div>
+        <div class="size-h6">iGPU</div>
+      </div>
+    </div>
+    <ul class="list-horizontal-text margin-top-15">
+      <li>{{ .JSON.String "mem_used" }} / {{ .JSON.String "mem_total" }}</li>
+      <li>load {{ .JSON.String "load" }}</li>
+      <li>gpu {{ .JSON.String "gpu_temp" }}</li>
+    </ul>
+    <ul class="list-horizontal-text margin-top-10">
+      {{ range .JSON.Array "temps" }}<li>{{ .String "label" }} {{ .Float "c" | printf "%.0f" }}C</li>{{ end }}
+    </ul>
+    <ul class="list-horizontal-text margin-top-10">
+      {{ range .JSON.Array "disks" }}<li>{{ .String "label" }} {{ .String "pct" }}%</li>{{ end }}
+    </ul>
+    {{ range .JSON.Array "zfs" }}
+    <div class="size-h6 margin-top-10">{{ .String "name" }}: {{ .String "alloc" }} / {{ .String "size" }} ({{ .String "health" }})</div>
+    {{ end }}
+  '';
+
+  sparksTemplate = ''
+    {{ range .JSON.Array "nodes" }}
+    <div class="flex justify-between margin-top-10">
+      <span class="size-h4 color-highlight">{{ .String "host" }}</span>
+      <span class="size-h6 {{ if .Bool "up" }}color-positive{{ else }}color-negative{{ end }}">{{ .String "status" }}</span>
+    </div>
+    <ul class="list-horizontal-text">
+      {{ range .Array "lines" }}<li>{{ .String "" }}</li>{{ end }}
+    </ul>
+    {{ end }}
+  '';
+
+  presenceTemplate = ''
+    {{ if .JSON.Array "people" }}
+    <ul class="list list-gap-10">
+      {{ range .JSON.Array "people" }}
+      <li class="flex justify-between">
+        <span class="size-h4 color-highlight">{{ .String "name" }}</span>
+        <span class="size-h6">{{ .String "state" }}</span>
+      </li>
+      {{ end }}
+    </ul>
+    {{ else }}
+    <p class="size-h6 color-paragraph">no presence data</p>
+    {{ end }}
+  '';
+
+  torrentsTemplate = ''
+    <div class="flex justify-between">
+      <span class="size-h4 color-highlight">{{ .JSON.String "up" }} up</span>
+      <span class="size-h4 color-highlight">{{ .JSON.String "down" }} down</span>
+    </div>
+    <ul class="list-horizontal-text margin-top-10">
+      <li>ratio {{ .JSON.Float "ratio" | printf "%.2f" }}</li>
+      <li>{{ .JSON.Int "count" }} torrents</li>
+    </ul>
+  '';
+
+  appWidget = slug: a: {
+    type = "custom-api";
+    title = a.title;
+    # glance caches fetched widget data for minutes by default; a status line
+    # that stale is a lie. 30s sits just above the 15s vllm scrape.
+    cache = "30s";
+    url = "${apiBase}/app/${slug}";
+    template = appTemplate;
+  };
+
+  groupWidgets = g: lib.mapAttrsToList appWidget (lib.filterAttrs (_: a: a.group == g) published);
 in
 {
   config = lib.mkIf cfg.enable {
@@ -176,6 +297,10 @@ in
     };
 
     # ── dashboard ─────────────────────────────────────────────────────────
+    # the pages are generated from the registry: home is the machine + the
+    # sparks + presence + the seedbox, and one page per group holds a widget per
+    # app (status, uptime, restarts, latency, link). adding an app to
+    # me.bellona.apps adds its widget here.
     services.glance = {
       enable = true;
       settings = {
@@ -192,15 +317,24 @@ in
                 widgets = [
                   {
                     type = "custom-api";
-                    title = "homelab";
-                    url = "http://127.0.0.1:8091/summary";
-                    # glance caches fetched widget data (default is minutes), and
-                    # a status line that stale is a lie. 30s sits just above the
-                    # 15s vllm scrape.
+                    title = "bellona";
                     cache = "30s";
-                    template = ''
-                      {{ .JSON.String "headline" }}
-                    '';
+                    url = "${apiBase}/machine";
+                    template = machineTemplate;
+                  }
+                  {
+                    type = "custom-api";
+                    title = "sparks";
+                    cache = "30s";
+                    url = "${apiBase}/sparks";
+                    template = sparksTemplate;
+                  }
+                  {
+                    type = "custom-api";
+                    title = "presence";
+                    cache = "60s";
+                    url = "${apiBase}/presence";
+                    template = presenceTemplate;
                   }
                 ];
               }
@@ -214,40 +348,37 @@ in
                         # glance 0.8 keys these as `title`, not `name` -- `name`
                         # parses fine and then renders as an empty row.
                         title = "services";
-                        links = [
-                          {
-                            title = "Immich";
-                            url = "https://photos.${cfg.domain}";
-                          }
-                          {
-                            title = "Music";
-                            url = "https://music.${cfg.domain}";
-                          }
-                          {
-                            title = "Soulseek";
-                            url = "https://soulseek.${cfg.domain}";
-                          }
-                          {
-                            title = "Torrents";
-                            url = "https://torrents.${cfg.domain}";
-                          }
-                          {
-                            title = "Home Assistant";
-                            url = "https://ha.${cfg.domain}";
-                          }
-                          {
-                            title = "Grafana";
-                            url = "https://grafana.${cfg.domain}";
-                          }
-                          {
-                            title = "Hermes";
-                            url = "https://hermes.${cfg.domain}";
-                          }
-                        ];
+                        links = lib.mapAttrsToList (_: a: {
+                          title = a.title;
+                          url = "https://${a.subdomain}.${cfg.domain}";
+                        }) published;
                       }
                     ];
                   }
+                  {
+                    type = "custom-api";
+                    title = "seedbox";
+                    cache = "30s";
+                    url = "${apiBase}/torrents";
+                    template = torrentsTemplate;
+                  }
                 ];
+              }
+            ];
+          }
+          {
+            # glance allows up to 3 columns per page but requires 1 or 2 of them
+            # to be full width, so the groups are packed into two full columns
+            # instead of three small ones.
+            name = "services";
+            columns = [
+              {
+                size = "full";
+                widgets = groupWidgets "media" ++ groupWidgets "home";
+              }
+              {
+                size = "full";
+                widgets = groupWidgets "infra";
               }
             ];
           }
@@ -264,7 +395,9 @@ in
         "home-assistant.service"
       ];
       serviceConfig = {
-        ExecStart = "${pkgs.python3}/bin/python3 ${./homelab-api.py}";
+        # the app registry is passed in as JSON so the unit knows which apps to
+        # report on without a second hand-kept list.
+        ExecStart = "${pkgs.python3}/bin/python3 ${./homelab-api.py} ${registryJson}";
         Restart = "on-failure";
       };
     };

@@ -46,6 +46,14 @@ let
           reverse_proxy 127.0.0.1:${toString upstream}
         '';
     };
+
+  # the registry is the single source: every published app gets a vhost, an
+  # authelia rule and a dashboard widget from the same attr, so a new service
+  # cannot end up reachable-but-unlisted or listed-but-unreachable.
+  published = lib.filter (a: a.publish && a.subdomain != null) (lib.attrValues cfg.apps);
+  domainOf = a: "${a.subdomain}.${domain}";
+  protectedDomains = map domainOf (lib.filter (a: a.protect) published);
+  bypassDomains = map domainOf (lib.filter (a: !a.protect) published);
 in
 {
   config = lib.mkIf cfg.enable {
@@ -119,39 +127,16 @@ in
             reverse_proxy 127.0.0.1:${toString autheliaPort}
           '';
         };
-
-        "home.${domain}" = vhost { upstream = 8090; };
-        # photos is OFF: immich has no backend listening on 2283 yet (its
-        # postgres is down), and until it is real there is no reason to publish
-        # an app that has to bypass forward-auth to keep its mobile clients and
-        # share links working. re-enable this block and the authelia bypass rule
-        # below together, or immich will 502 through authelia instead.
-        # "photos.${domain}" = vhost {
-        #   upstream = 2283;
-        #   protect = false;
-        # };
-        "torrents.${domain}" = vhost { upstream = 8080; };
-        "grafana.${domain}" = vhost { upstream = 3000; };
-        "hermes.${domain}" = vhost { upstream = 9120; };
-        # forgejo's web ui; 3001 matches forge.nix. the forgejo ssh endpoint is
-        # a separate port (2222) and never passes through caddy.
-        "git.${domain}" = vhost { upstream = 3001; };
-        # api has no vhost: glance fetches http://127.0.0.1:8091/summary
-        # server-side and the noctalia widget polls the LAN address directly, so
-        # publishing it only added a bearer-token surface with no forward-auth.
-
-        # music, soulseek and ha used to carve out /rest, /api and HA's own
-        # endpoints so Subsonic clients, the HA app and slskd's API could skip
-        # authelia. nothing is carved out now: every path on every host needs a
-        # session. clients that cannot follow a redirect use the tailnet.
-        "music.${domain}" = vhost { upstream = 4533; };
-        "soulseek.${domain}" = vhost { upstream = 5030; };
-        "ha.${domain}" = vhost { upstream = 8123; };
-        "media.${domain}" = vhost { upstream = 8096; };
-        # cctrack's UI (a user unit on 127.0.0.1:5001) -- CIBC statements,
-        # review queue, burn chart.
-        "budget.${domain}" = vhost { upstream = 5001; };
-      };
+      }
+      // lib.listToAttrs (
+        map (a: {
+          name = "${a.subdomain}.${domain}";
+          value = vhost {
+            upstream = a.port;
+            protect = a.protect;
+          };
+        }) published
+      );
     };
 
     services.authelia.instances.main = {
@@ -190,33 +175,21 @@ in
               domain = "auth.${domain}";
               policy = "bypass";
             }
+          ]
+          ++ lib.optional (protectedDomains != [ ]) {
             # everything else is two_factor, with no per-path carve-outs. one
             # session covers every vhost, so this is a single login for the
             # whole homelab -- the "auto login" is that authelia already has a
             # cookie for the parent domain and forward_auth just passes it.
-            {
-              domain = [
-                "home.${domain}"
-                "torrents.${domain}"
-                "grafana.${domain}"
-                "hermes.${domain}"
-                "music.${domain}"
-                "soulseek.${domain}"
-                "ha.${domain}"
-                "media.${domain}"
-                "budget.${domain}"
-                "git.${domain}"
-              ];
-              policy = "two_factor";
-            }
-            # photos has no vhost right now (see ingress), so this is inert.
-            # immich keeps its own auth + share links, so it stays bypassed when
-            # it comes back -- its auth is immich's OIDC, not authelia's proxy.
-            {
-              domain = "photos.${domain}";
-              policy = "bypass";
-            }
-          ];
+            domain = protectedDomains;
+            policy = "two_factor";
+          }
+          ++ lib.optional (bypassDomains != [ ]) {
+            # apps that carry their own auth (immich's OIDC and share links)
+            # skip forward-auth entirely and gate themselves.
+            domain = bypassDomains;
+            policy = "bypass";
+          };
         };
         # OIDC provider for jellyfin's SSO plugin (9p4/jellyfin-plugin-sso).
         # authelia derives the issuer from the client's redirect URI, so there is

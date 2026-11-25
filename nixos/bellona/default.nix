@@ -2,6 +2,7 @@
 {
   imports = [
     ./storage.nix
+    ./registry.nix
     ./ingress.nix
     ./observability.nix
     ./apps.nix
