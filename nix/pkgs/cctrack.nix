@@ -103,10 +103,15 @@ let
             # verified it, so stamping has nothing left to do.
             camoufox = prev.camoufox.overrideAttrs (old: {
               postInstall = (old.postInstall or "") + ''
+                # the replacement is built with escapeShellArg rather than
+                # written inline: an escaped newline inside an indented nix
+                # string also swallows the indentation after it, which put the
+                # inserted `return` at column 0 and made camoufox die at import
+                # with "IndentationError: expected an indented block".
                 substituteInPlace "$out/${python.sitePackages}/camoufox/fpgen_model.py" \
                   --replace-fail \
-                    "def _stamp(data_dir: Path) -> None:" \
-                    "def _stamp(data_dir: Path) -> None:''\n    return"
+                    'def _stamp(data_dir: Path) -> None:' \
+                    ${lib.escapeShellArg "def _stamp(data_dir: Path) -> None:\n    return"}
               '';
             });
           })
