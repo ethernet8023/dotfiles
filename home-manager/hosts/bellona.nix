@@ -241,8 +241,11 @@ in
   systemd.user.services.beeper-server = {
     Unit = {
       Description = "Beeper Server (SMS bridge for CIBC sign-on codes)";
-      after = [ "network-online.target" ];
-      wants = [ "network-online.target" ];
+      # capitalised on purpose: systemd keys are case-sensitive and nix passes
+      # them through verbatim, so `after`/`wants` are silently ignored (the
+      # cctrack unit had that bug until now).
+      After = [ "network-online.target" ];
+      Wants = [ "network-online.target" ];
     };
     Service = {
       ExecStart = "${beeperServer}/bin/beeper-server --host=127.0.0.1 --port=23373 --data-dir=%h/.beeper/profiles/server/server --server-env=production";
@@ -259,13 +262,13 @@ in
   systemd.user.services.cctrack = {
     Unit = {
       Description = "cctrack: CIBC statements + budget UI (127.0.0.1:5001)";
-      after = [ "network-online.target" ];
-      wants = [ "network-online.target" ];
+      After = [ "network-online.target" ];
+      Wants = [ "network-online.target" ];
       # A rejected login is the one failure that can lock the account, so the
       # in-process scheduler owns retries (exponential backoff, hard stop after
       # four). These limits only stop a crash loop.
-      startLimitIntervalSec = 3600;
-      startLimitBurst = 5;
+      StartLimitIntervalSec = 3600;
+      StartLimitBurst = 5;
     };
     Service = {
       ExecStart = "${pkgs.cage}/bin/cage -- ${cctrack-package}/bin/cctrack serve --host 127.0.0.1 --port 5001 --auto-sync --every 360";

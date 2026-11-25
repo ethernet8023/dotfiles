@@ -117,17 +117,26 @@ Re-encrypt after changing it:
    The Desktop profile in `~/.config/BeeperTexts` is not what the server uses
    (its data lives in `~/.beeper/profiles/server/server`), so it can go.
 
-3. **Authorise cctrack's Beeper API client.** the bearer token in
-   `~/.config/cctrack/beeper_token.json` is bound to the instance's dynamic
-   client registration, so the Desktop one does not carry over: mint a new one
-   against the server. Beeper Server serves its approval page on the box only,
-   so tunnel both ports and run it there:
+3. **Give cctrack a token.** cctrack reads a bearer token from
+   `~/.config/cctrack/beeper_token.json`. Its own OAuth dance works, but the
+   code exchange 400s against Beeper Server, and the token it mints is
+   short-lived (`cctrack/secrets/beeper.py` says a day). The CLI's matrix token
+   from step 2 reads the same API and does not expire, so hand cctrack that:
 
-       ssh -L 23373:127.0.0.1:23373 -L 8765:127.0.0.1:8765 bellona
-       ssh bellona 'cctrack beeper auth'   # open the printed URL locally
+       TOK=$(jq -r .auth.accessToken ~/.beeper/targets/server.json)
+       mkdir -p ~/.config/cctrack
+       jq -n --arg t "$TOK" '{client_id: "beeper-cli", access_token: $t, token_type: "Bearer"}' \
+         > ~/.config/cctrack/beeper_token.json
+       chmod 600 ~/.config/cctrack/beeper_token.json
+       systemctl --user restart cctrack
 
-   the token is short-lived (`cctrack/secrets/beeper.py` says a day), so this is
-   also the thing to rerun when a sync reports "token rejected".
+   proof it can read the CIBC texts:
+
+       curl -s -H "authorization: Bearer $TOK" \
+         "127.0.0.1:23373/v1/messages/search?query=CIBC&limit=2" | jq '.items[].text'
+
+   if you ever do need a fresh one from cctrack itself, `cctrack beeper auth`
+   prints an approval URL on the box -- tunnel 23373 and 8765 to reach it.
 
 4. `systemctl --user start cctrack`, then `journalctl --user -u cctrack -f`
    while it does its first sync. The first sync after migration is a normal
