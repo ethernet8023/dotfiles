@@ -649,6 +649,12 @@ async def download_transactions(
     # display" ({Result #0121}) instead. Waiting only on the download would burn
     # the full timeout and report an ordinary empty month as a failure.
     empty_notice = page.get_by_text("no transactions to display", exact=False)
+    # A failing account answers with a full-page "PLEASE EXCUSE US" interstitial
+    # ({Result #0001}) that also never starts a download, and CIBC renders it in
+    # a couple of seconds. Without watching for it, a broken account costs the
+    # whole 90s timeout per chunk -- minutes per sync on a card that is not
+    # going to answer at all.
+    error_notice = page.get_by_text("unexpected error", exact=False)
     async with page.expect_download(timeout=90_000) as info:
         await click_settled(page, submit)
         for _ in range(30):
@@ -656,6 +662,9 @@ async def download_transactions(
                 raise NoTransactions(
                     f"{account}: no transactions between {start} and {end}"
                 )
+            if await error_notice.count():
+                message = await read_error(page) or "no message"
+                raise DownloadError(f"{account}: CIBC returned its error page ({message})")
             await page.wait_for_timeout(500)
     download = await info.value
 
