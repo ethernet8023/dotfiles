@@ -278,7 +278,13 @@ in
       WorkingDirectory = "%h/.local/share/cctrack";
       ExecStartPre = "${pkgs.coreutils}/bin/mkdir -p %h/.local/share/cctrack/downloads";
       Environment = [
-        "CCTRACK_LOGIN_FILE=${config.age.secrets.cctrack-cibc.path}"
+        # systemd does not expand shell-style $VAR references in Environment=;
+        # it expands only %-specifiers. agenix's path option is the literal
+        # string "${XDG_RUNTIME_DIR}/agenix/..." (the activation script expands
+        # it in its own shell), so handing that to the unit reaches cctrack
+        # unexpanded and every sync dies on a missing login file. %t is the
+        # user manager's runtime dir, which is exactly where agenix installs it.
+        "CCTRACK_LOGIN_FILE=%t/agenix/${config.age.secrets.cctrack-cibc.name}"
         "CCTRACK_DOWNLOADS=%h/.local/share/cctrack/downloads"
         "WLR_BACKENDS=headless"
         "WLR_LIBINPUT_NO_DEVICES=1"

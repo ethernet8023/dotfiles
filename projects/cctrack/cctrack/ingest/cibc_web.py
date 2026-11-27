@@ -342,7 +342,40 @@ async def sign_in(page, cred: Credential | None = None, on_step=None) -> None:
     else:
         say("device trusted, 2FA skipped")
 
-    await signed_in.wait_for(state="visible", timeout=30_000)
+    try:
+        await signed_in.wait_for(state="visible", timeout=30_000)
+    except PlaywrightError:
+        # CIBC chains micro-frontends after sign-on -- interstitial-redirect,
+        # then digital-targeted-offers -- and neither carries the accounts
+        # view's Sign off button, so waiting on whatever page it lands on times
+        # out. Sign-on itself may well have succeeded. Go to the download route
+        # instead of back to #/signon (which just re-enters the offers chain):
+        # an authenticated session renders the download form there, and an
+        # unauthenticated one bounces to the card field -- a clean signal. The
+        # route occasionally comes up blank after that redirect chain, so one
+        # reload is allowed before calling it a failure.
+        say("dismissing CIBC's post-sign-on interstitial")
+        for attempt in (1, 2):
+            await page.goto(DOWNLOAD_URL, wait_until="domcontentloaded", timeout=60_000)
+            stage = await first_of(
+                {
+                    "download": page.locator('input[name="criteria"]').first,
+                    "card": card,
+                    "error": error,
+                },
+                timeout_s=30,
+            )
+            if stage == "download":
+                break
+            if stage == "card":
+                raise LoginError(
+                    f"sign-on did not take: bounced back to the card field at {page.url[:90]}"
+                )
+            if stage == "error":
+                await stop_on_error("after sign-on")
+            say(f"download form did not render (try {attempt}), reloading")
+        else:
+            await stop_on_error("after sign-on")
     say("signed in")
 
 
