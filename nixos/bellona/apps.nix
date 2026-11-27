@@ -47,7 +47,7 @@ let
   );
 
   appTemplate = ''
-    <div class="flex justify-between">
+    <div class="flex justify-between" data-hl="app-{{ .JSON.String "slug" }}">
       <a class="size-h4 color-highlight" href="{{ .JSON.String "url" }}">{{ .JSON.String "title" }}</a>
       <span class="size-h6 {{ if .JSON.Bool "up" }}color-positive{{ else }}color-negative{{ end }}">{{ .JSON.String "status" }}</span>
     </div>
@@ -63,7 +63,7 @@ let
   # the per-app tab. same backend, more of it: both uptime windows, restarts,
   # latency, the unit and the http code behind the probe.
   appDetailTemplate = ''
-    <div class="flex justify-between">
+    <div class="flex justify-between" data-hl="app-{{ .JSON.String "slug" }}">
       <span class="size-h3 color-highlight">{{ .JSON.String "title" }}</span>
       <span class="size-h3 {{ if .JSON.Bool "up" }}color-positive{{ else }}color-negative{{ end }}">{{ .JSON.String "status" }}</span>
     </div>
@@ -98,7 +98,7 @@ let
   '';
 
   machineTemplate = ''
-    <div class="flex justify-between text-center">
+    <div class="flex justify-between text-center" data-hl="machine">
       <div>
         <div class="size-h3 color-highlight">{{ .JSON.Float "cpu_pct" | printf "%.0f" }}%</div>
         <div class="size-h6">CPU</div>
@@ -129,6 +129,7 @@ let
   '';
 
   sparksTemplate = ''
+    <div data-hl="sparks">
     {{ range .JSON.Array "nodes" }}
     <div class="flex justify-between margin-top-10">
       <span class="size-h4 color-highlight">{{ .String "host" }}</span>
@@ -138,9 +139,11 @@ let
       {{ range .Array "lines" }}<li>{{ .String "" }}</li>{{ end }}
     </ul>
     {{ end }}
+    </div>
   '';
 
   presenceTemplate = ''
+    <div data-hl="presence">
     {{ if .JSON.Array "people" }}
     <ul class="list list-gap-10">
       {{ range .JSON.Array "people" }}
@@ -153,10 +156,11 @@ let
     {{ else }}
     <p class="size-h6 color-paragraph">no presence data</p>
     {{ end }}
+    </div>
   '';
 
   torrentsTemplate = ''
-    <div class="flex justify-between">
+    <div class="flex justify-between" data-hl="seedbox">
       <span class="size-h4 color-highlight">{{ .JSON.String "up" }} up</span>
       <span class="size-h4 color-highlight">{{ .JSON.String "down" }} down</span>
     </div>
@@ -169,9 +173,11 @@ let
   appWidget = slug: a: {
     type = "custom-api";
     title = a.title;
-    # glance caches fetched widget data for minutes by default; a status line
-    # that stale is a lie. 30s sits just above the 15s vllm scrape.
-    cache = "30s";
+    # the card body already carries the title, so no widget header.
+    hide-header = true;
+    # the page content is re-fetched client-side every 15s; a 10s server cache
+    # keeps the probe fresh without hammering ten listeners on every tick.
+    cache = "10s";
     url = "${apiBase}/app/${slug}";
     template = appTemplate;
   };
@@ -186,7 +192,8 @@ let
           {
             type = "custom-api";
             title = a.title;
-            cache = "30s";
+            hide-header = true;
+            cache = "10s";
             url = "${apiBase}/app/${slug}";
             template = appDetailTemplate;
           }
@@ -202,7 +209,13 @@ let
     "home"
     "infra"
   ];
-  wallWidgets = map (s: appWidget s published.${s}) orderedSlugs;
+  # split-column tiles the cards two-wide on desktop and collapses to a single
+  # column on mobile, which is the layout glance supports natively.
+  wall = {
+    type = "split-column";
+    max-columns = 2;
+    widgets = map (s: appWidget s published.${s}) orderedSlugs;
+  };
   appPages = map (s: appPage s published.${s}) orderedSlugs;
 in
 {
@@ -373,6 +386,56 @@ in
           host = "127.0.0.1";
           port = 8090;
         };
+        # glance has no client-side refresh of its own, so widget bodies are
+        # re-fetched every 15s and swapped in place. only the .widget-content of
+        # each marked widget is replaced -- swapping #page-content wholesale
+        # drops glance's masonry columns and the 2-wide tiling with them.
+        document.head = ''
+          <script>
+            (function () {
+              var every = 15000;
+              function slug() {
+                var parts = window.location.pathname.replace(/\/+$/, "").split("/").filter(Boolean);
+                return parts.length ? parts[parts.length - 1] : "home";
+              }
+              function swap(html) {
+                var cur = document.getElementById("page-content");
+                if (!cur) return;
+                var fresh = new DOMParser().parseFromString(html, "text/html");
+                var marks = cur.querySelectorAll("[data-hl]");
+                var swapped = 0;
+                for (var i = 0; i < marks.length; i++) {
+                  var key = marks[i].getAttribute("data-hl");
+                  var src = fresh.querySelector('[data-hl="' + key + '"]');
+                  if (!src) continue;
+                  var dstBox = marks[i].closest(".widget-content");
+                  var srcBox = src.closest(".widget-content");
+                  if (!dstBox || !srcBox) continue;
+                  dstBox.innerHTML = srcBox.innerHTML;
+                  swapped++;
+                }
+                // nothing matched means the config changed under us; take it whole
+                if (swapped === 0) cur.innerHTML = html;
+              }
+              var busy = false;
+              function refresh() {
+                if (busy || document.hidden) return;
+                busy = true;
+                fetch("/api/pages/" + slug() + "/content/", { cache: "no-store" })
+                  .then(function (r) { return r.ok ? r.text() : null; })
+                  .then(function (html) {
+                    if (html !== null) swap(html);
+                  })
+                  .catch(function () {})
+                  .then(function () { busy = false; });
+              }
+              document.addEventListener("visibilitychange", function () {
+                if (!document.hidden) refresh();
+              });
+              setInterval(refresh, every);
+            })();
+          </script>
+        '';
         pages = [
           {
             name = "home";
@@ -383,14 +446,14 @@ in
                   {
                     type = "custom-api";
                     title = "bellona";
-                    cache = "30s";
+                    cache = "5s";
                     url = "${apiBase}/machine";
                     template = machineTemplate;
                   }
                   {
                     type = "custom-api";
                     title = "sparks";
-                    cache = "30s";
+                    cache = "5s";
                     url = "${apiBase}/sparks";
                     template = sparksTemplate;
                   }
@@ -404,7 +467,7 @@ in
                   {
                     type = "custom-api";
                     title = "seedbox";
-                    cache = "30s";
+                    cache = "5s";
                     url = "${apiBase}/torrents";
                     template = torrentsTemplate;
                   }
@@ -412,7 +475,7 @@ in
               }
               {
                 size = "full";
-                widgets = wallWidgets;
+                widgets = [ wall ];
               }
               {
                 size = "small";
