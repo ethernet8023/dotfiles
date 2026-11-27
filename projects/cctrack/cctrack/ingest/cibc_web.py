@@ -537,19 +537,34 @@ async def list_accounts(page) -> list[str]:
 
 
 async def open_download_page(page) -> None:
-    """Navigate to the download form and wait for it to render."""
-    if "#/accounts/download" not in page.url:
-        link = page.get_by_role("link", name="Download Transactions").first
-        if await link.count():
-            await link.click()
-        else:
-            await page.goto(DOWNLOAD_URL, wait_until="domcontentloaded")
+    """Navigate to the download form and wait for it to render.
 
-    # The form is Angular-rendered: eight selects and the criteria radios.
-    await page.locator('input[name="criteria"]').first.wait_for(
-        state="attached", timeout=30_000
-    )
-    await page.locator("select").first.wait_for(state="visible", timeout=30_000)
+    The route sometimes comes up blank -- notably after CIBC answers an export
+    with its `#/accounts/error` page: the header link is still there, but the
+    router does not always re-render the form from it, and every later chunk
+    then dies on a missing control. A full load of the route does render it, so
+    one retry is allowed before the failure is real.
+    """
+    criteria = page.locator('input[name="criteria"]').first
+    picker = page.locator("select").first
+
+    for attempt in (1, 2):
+        if "#/accounts/download" not in page.url:
+            link = page.get_by_role("link", name="Download Transactions").first
+            if await link.count():
+                await link.click()
+            else:
+                await page.goto(DOWNLOAD_URL, wait_until="domcontentloaded")
+
+        try:
+            # The form is Angular-rendered: eight selects and the criteria radios.
+            await criteria.wait_for(state="attached", timeout=20_000)
+            await picker.wait_for(state="visible", timeout=10_000)
+            return
+        except PlaywrightError:
+            if attempt == 2:
+                raise
+            await page.goto(DOWNLOAD_URL, wait_until="domcontentloaded", timeout=60_000)
 
 
 async def _set_date(page, selects: list, start: int, when: date) -> None:

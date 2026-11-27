@@ -559,8 +559,15 @@ def _sync_job(database):
             problems.extend(errors)
             total = sum(added.values())
             job.log(f"imported {total} new transaction(s)")
+            for problem in problems:
+                job.log(f"problem: {problem}")
+            # A chunk CIBC refuses to export (the VISA card answers every request
+            # with {Result #0001}) must not turn a sync that already imported into
+            # a failure: the scheduler backs off on failure, so one broken account
+            # would hold back the accounts that work. The problems stay in the log
+            # and in the summary instead.
             if problems:
-                raise RuntimeError("; ".join(problems[:3]))
+                return f"{total} new, {len(problems)} problem(s)"
             return f"{total} new"
 
         return asyncio.run(run())
