@@ -178,13 +178,13 @@ def app_report(slug, app):
         else f"http://127.0.0.1:{app.get('port')}",
         "up": alive,
         "status": "UP" if alive else "DOWN",
-        "unit": unit,
+        "unit": unit or "—",
         "uptime_24h": pct(up_24),
         "uptime_7d": pct(up_7),
         "uptime_30d": pct(up_30),
         "restarts_30d": restarts,
         "latency_ms": pr["ms"],
-        "code": pr["code"],
+        "code": "—" if pr["code"] is None else str(pr["code"]),
         "info": info_for(app),
     }
 

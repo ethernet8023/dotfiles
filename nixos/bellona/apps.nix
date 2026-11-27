@@ -57,6 +57,44 @@ let
       <li>{{ .JSON.Int "latency_ms" }}ms</li>
     </ul>
     <p class="size-h6 color-paragraph margin-top-10">{{ .JSON.String "info" }}</p>
+    <p class="size-h6 margin-top-10"><a href="/{{ .JSON.String "slug" }}">status page</a></p>
+  '';
+
+  # the per-app tab. same backend, more of it: both uptime windows, restarts,
+  # latency, the unit and the http code behind the probe.
+  appDetailTemplate = ''
+    <div class="flex justify-between">
+      <span class="size-h3 color-highlight">{{ .JSON.String "title" }}</span>
+      <span class="size-h3 {{ if .JSON.Bool "up" }}color-positive{{ else }}color-negative{{ end }}">{{ .JSON.String "status" }}</span>
+    </div>
+    <ul class="list-horizontal-text margin-top-10">
+      <li><a href="{{ .JSON.String "url" }}">{{ .JSON.String "url" }}</a></li>
+      <li>unit {{ .JSON.String "unit" }}</li>
+      <li>http {{ .JSON.String "code" }}</li>
+    </ul>
+    <div class="flex justify-between text-center margin-top-15">
+      <div>
+        <div class="size-h3 color-highlight">{{ .JSON.String "uptime_24h" }}</div>
+        <div class="size-h6">24H</div>
+      </div>
+      <div>
+        <div class="size-h3 color-highlight">{{ .JSON.String "uptime_7d" }}</div>
+        <div class="size-h6">7D</div>
+      </div>
+      <div>
+        <div class="size-h3 color-highlight">{{ .JSON.String "uptime_30d" }}</div>
+        <div class="size-h6">30D</div>
+      </div>
+      <div>
+        <div class="size-h3 color-highlight">{{ .JSON.Int "restarts_30d" }}</div>
+        <div class="size-h6">RESTARTS</div>
+      </div>
+      <div>
+        <div class="size-h3 color-highlight">{{ .JSON.Int "latency_ms" }}ms</div>
+        <div class="size-h6">LATENCY</div>
+      </div>
+    </div>
+    <p class="size-h4 color-paragraph margin-top-15">{{ .JSON.String "info" }}</p>
   '';
 
   machineTemplate = ''
@@ -138,7 +176,34 @@ let
     template = appTemplate;
   };
 
-  groupWidgets = g: lib.mapAttrsToList appWidget (lib.filterAttrs (_: a: a.group == g) published);
+  appPage = slug: a: {
+    name = a.title;
+    slug = slug;
+    columns = [
+      {
+        size = "full";
+        widgets = [
+          {
+            type = "custom-api";
+            title = a.title;
+            cache = "30s";
+            url = "${apiBase}/app/${slug}";
+            template = appDetailTemplate;
+          }
+        ];
+      }
+    ];
+  };
+
+  # media, then home, then infra -- so the wall and the tab order follow the
+  # group instead of the attr name.
+  orderedSlugs = lib.concatMap (g: lib.attrNames (lib.filterAttrs (_: a: a.group == g) published)) [
+    "media"
+    "home"
+    "infra"
+  ];
+  wallWidgets = map (s: appWidget s published.${s}) orderedSlugs;
+  appPages = map (s: appPage s published.${s}) orderedSlugs;
 in
 {
   config = lib.mkIf cfg.enable {
@@ -297,10 +362,10 @@ in
     };
 
     # ── dashboard ─────────────────────────────────────────────────────────
-    # the pages are generated from the registry: home is the machine + the
-    # sparks + presence + the seedbox, and one page per group holds a widget per
-    # app (status, uptime, restarts, latency, link). adding an app to
-    # me.bellona.apps adds its widget here.
+    # one scrollable page: machine, sparks, presence, seedbox, the service wall
+    # and the bookmarks, then a tab per app with its own status detail. all of
+    # it is generated from me.bellona.apps, so adding an app adds both its card
+    # and its tab.
     services.glance = {
       enable = true;
       settings = {
@@ -336,10 +401,21 @@ in
                     url = "${apiBase}/presence";
                     template = presenceTemplate;
                   }
+                  {
+                    type = "custom-api";
+                    title = "seedbox";
+                    cache = "30s";
+                    url = "${apiBase}/torrents";
+                    template = torrentsTemplate;
+                  }
                 ];
               }
               {
                 size = "full";
+                widgets = wallWidgets;
+              }
+              {
+                size = "small";
                 widgets = [
                   {
                     type = "bookmarks";
@@ -355,34 +431,12 @@ in
                       }
                     ];
                   }
-                  {
-                    type = "custom-api";
-                    title = "seedbox";
-                    cache = "30s";
-                    url = "${apiBase}/torrents";
-                    template = torrentsTemplate;
-                  }
                 ];
               }
             ];
           }
-          {
-            # glance allows up to 3 columns per page but requires 1 or 2 of them
-            # to be full width, so the groups are packed into two full columns
-            # instead of three small ones.
-            name = "services";
-            columns = [
-              {
-                size = "full";
-                widgets = groupWidgets "media" ++ groupWidgets "home";
-              }
-              {
-                size = "full";
-                widgets = groupWidgets "infra";
-              }
-            ];
-          }
-        ];
+        ]
+        ++ appPages;
       };
     };
 
